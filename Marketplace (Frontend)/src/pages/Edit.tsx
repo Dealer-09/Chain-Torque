@@ -9,8 +9,7 @@ import { Plus, Loader2, AlertCircle, Download, Star, Edit3, Wallet } from 'lucid
 import apiService from '@/services/apiService';
 import { getCadUrl } from '@/lib/urls';
 import { useWalletAddress } from '@/hooks/useWalletAddress';
-
-// Import fallback images
+// Fallback images
 import cadGear from '@/assets/cad-gear.jpg';
 import cadDrone from '@/assets/cad-drone.jpg';
 import cadEngine from '@/assets/cad-engine.jpg';
@@ -109,14 +108,90 @@ const Edit = () => {
     window.open(cadUrl, '_blank');
   };
 
-  const handleDownloadModel = (item: PurchasedItem, e: React.MouseEvent) => {
+  const handleDownloadModel = async (item: PurchasedItem, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!item.modelUrl) {
       alert('Model file not available for download.');
       return;
     }
-    // Open the IPFS URL in a new tab for download
-    window.open(item.modelUrl, '_blank');
+
+    try {
+      // Show loading state
+      const button = e.currentTarget as HTMLButtonElement;
+      const originalText = button.innerHTML;
+      button.innerHTML = '<span class="animate-spin mr-1">⏳</span> Downloading...';
+      button.disabled = true;
+
+      // Fetch the file from IPFS
+      const response = await fetch(item.modelUrl);
+      if (!response.ok) throw new Error('Failed to download file');
+
+      const blob = await response.blob();
+
+      // Create filename from title, sanitize it
+      const sanitizedTitle = item.title.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `${sanitizedTitle}.glb`; // Models are GLB format
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      // Reset button
+      button.innerHTML = originalText;
+      button.disabled = false;
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('Download failed. Please try again.');
+    }
+  };
+
+  const handleDownloadImage = async (item: PurchasedItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!item.image) {
+      alert('Image not available for download.');
+      return;
+    }
+
+    try {
+      const response = await fetch(item.image);
+      if (!response.ok) throw new Error('Failed to download image');
+
+      const blob = await response.blob();
+      const sanitizedTitle = item.title.replace(/[^a-zA-Z0-9_-]/g, '_');
+      // Determine extension from content type
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+      const filename = `${sanitizedTitle}_preview.${ext}`;
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Image download failed:', error);
+      alert('Image download failed. Please try again.');
+    }
+  };
+
+  const handleDownloadAll = async (item: PurchasedItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Download both model and image
+    await handleDownloadModel(item, e);
+    if (item.image) {
+      await handleDownloadImage(item, e);
+    }
   };
 
   // Create New Card Component
@@ -215,10 +290,10 @@ const Edit = () => {
                   size="sm"
                   variant="outline"
                   className="hover:bg-primary/10 transition-all"
-                  onClick={(e) => handleDownloadModel(item, e)}
+                  onClick={(e) => handleDownloadAll(item, e)}
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Download
+                  Download All
                 </Button>
               )}
               <Button
