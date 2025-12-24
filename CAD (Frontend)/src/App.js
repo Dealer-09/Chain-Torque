@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   FaSave,
   FaUndo,
@@ -35,6 +35,29 @@ const App = () => {
   const [features, setFeatures] = useState([]);
   const [selectedFeature, setSelectedFeature] = useState(null);
   const viewportRef = useRef();
+
+  // Model loading state
+  const [modelUrl, setModelUrl] = useState(null);
+  const [modelTitle, setModelTitle] = useState(null);
+  const [modelInfo, setModelInfo] = useState(null);
+
+  // Parse URL params on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const model = urlParams.get('model');
+    const title = urlParams.get('title');
+
+    if (model) {
+      console.log('[CAD] Loading model from URL:', model);
+      setModelUrl(decodeURIComponent(model));
+      setModelTitle(title ? decodeURIComponent(title) : 'Imported Model');
+    }
+  }, []);
+
+  const handleModelLoad = (info) => {
+    setModelInfo(info);
+    console.log('[CAD] Model loaded:', info);
+  };
 
   const toggleAIPanel = () => {
     setShowAIPanel(!showAIPanel);
@@ -81,7 +104,7 @@ const App = () => {
       }
       return prev.filter(f => f.id !== featureId);
     });
-    
+
     // Clear selection if deleted feature was selected
     if (selectedFeature && selectedFeature.id === featureId) {
       setSelectedFeature(null);
@@ -90,8 +113,8 @@ const App = () => {
 
   // Update feature
   const handleFeatureUpdate = (featureId, updates) => {
-    setFeatures(prev => prev.map(feature => 
-      feature.id === featureId 
+    setFeatures(prev => prev.map(feature =>
+      feature.id === featureId
         ? { ...feature, ...updates }
         : feature
     ));
@@ -112,7 +135,7 @@ const App = () => {
   const handleViewChange = (view) => {
     setActiveView(view);
     if (viewportRef.current) {
-      switch(view) {
+      switch (view) {
         case 'front':
           viewportRef.current.setFrontView();
           break;
@@ -154,7 +177,12 @@ const App = () => {
       <div className="topbar">
         <div className="topbar-left">
           <h1>ChainTorque CAD</h1>
-          <span className="filename">untitled_model.cad</span>
+          <span className="filename">{modelTitle || 'untitled_model.cad'}</span>
+          {modelInfo && (
+            <span className="model-info" style={{ marginLeft: '15px', fontSize: '12px', color: '#888' }}>
+              | Vertices: {modelInfo.vertices?.toLocaleString() || 0}
+            </span>
+          )}
         </div>
         <div className="topbar-icons">
           <FaFile title="New File" />
@@ -165,24 +193,24 @@ const App = () => {
           <FaCut title="Cut" />
           <FaPaste title="Paste" />
           <FaDownload title="Export" />
-          <FaSearchPlus 
-            title="Zoom In" 
+          <FaSearchPlus
+            title="Zoom In"
             onClick={handleZoomIn}
             style={{ cursor: 'pointer' }}
           />
-          <FaSearchMinus 
-            title="Zoom Out" 
+          <FaSearchMinus
+            title="Zoom Out"
             onClick={handleZoomOut}
             style={{ cursor: 'pointer' }}
           />
-          <FaExpandArrowsAlt 
-            title="Fit to Screen" 
+          <FaExpandArrowsAlt
+            title="Fit to Screen"
             onClick={handleFitToScreen}
             style={{ cursor: 'pointer' }}
             className="fit-to-screen-btn"
           />
-          <FaRobot 
-            title="Torquy" 
+          <FaRobot
+            title="Torquy"
             className={`ai-copilot ${showAIPanel ? 'active' : ''}`}
             onClick={toggleAIPanel}
           />
@@ -195,40 +223,40 @@ const App = () => {
         <div className="sidebar">
           <div className="tool-section">
             <h3>Sketch</h3>
-            <FaMousePointer 
-              title="Select" 
-              className={activeTool === 'select' ? 'active' : ''} 
+            <FaMousePointer
+              title="Select"
+              className={activeTool === 'select' ? 'active' : ''}
               onClick={() => handleToolSelect('select')}
             />
           </div>
           <div className="tool-section">
             <h3>Draw</h3>
-            <FaSlash 
-              title="Line Tool (L)" 
-              className={activeTool === 'line' ? 'active' : ''} 
+            <FaSlash
+              title="Line Tool (L)"
+              className={activeTool === 'line' ? 'active' : ''}
               onClick={() => handleToolSelect('line')}
             />
-            <FaVectorSquare 
-              title="Polygon Tool (P)" 
-              className={activeTool === 'polygon' ? 'active' : ''} 
+            <FaVectorSquare
+              title="Polygon Tool (P)"
+              className={activeTool === 'polygon' ? 'active' : ''}
               onClick={() => handleToolSelect('polygon')}
             />
-            <FaCircle 
-              title="Circle Tool (C)" 
-              className={activeTool === 'circle' ? 'active' : ''} 
+            <FaCircle
+              title="Circle Tool (C)"
+              className={activeTool === 'circle' ? 'active' : ''}
               onClick={() => handleToolSelect('circle')}
             />
           </div>
           <div className="tool-section">
             <h3>Edit</h3>
-            <FaEraser 
-              title="Undo Last (Backspace)" 
-              className={activeTool === 'eraser' ? 'active' : ''} 
+            <FaEraser
+              title="Undo Last (Backspace)"
+              className={activeTool === 'eraser' ? 'active' : ''}
               onClick={() => handleToolSelect('eraser')}
             />
-            <FaTrash 
-              title="Clear All (ESC)" 
-              className={activeTool === 'delete' ? 'active' : ''} 
+            <FaTrash
+              title="Clear All (ESC)"
+              className={activeTool === 'delete' ? 'active' : ''}
               onClick={() => handleToolSelect('delete')}
             />
           </div>
@@ -239,25 +267,25 @@ const App = () => {
           <div className="canvas-header">
             <span>3D CAD Viewport</span>
             <div className="view-controls">
-              <button 
+              <button
                 className={activeView === 'front' ? 'active' : ''}
                 onClick={() => handleViewChange('front')}
               >
                 Front
               </button>
-              <button 
+              <button
                 className={activeView === 'top' ? 'active' : ''}
                 onClick={() => handleViewChange('top')}
               >
                 Top
               </button>
-              <button 
+              <button
                 className={activeView === 'right' ? 'active' : ''}
                 onClick={() => handleViewChange('right')}
               >
                 Right
               </button>
-              <button 
+              <button
                 className={activeView === 'iso' ? 'active' : ''}
                 onClick={() => handleViewChange('iso')}
               >
@@ -265,10 +293,10 @@ const App = () => {
               </button>
             </div>
           </div>
-          
+
           {/* Viewport Manager - 2D/3D Switching */}
           <div className="viewport-container">
-            <ViewportManager 
+            <ViewportManager
               ref={viewportRef}
               features={features}
               onFeatureAdd={handleFeatureCreated}
@@ -277,13 +305,15 @@ const App = () => {
               selectedFeature={selectedFeature}
               onFeatureSelect={handleFeatureSelect}
               activeTool={activeTool}
+              modelUrl={modelUrl}
+              onModelLoad={handleModelLoad}
             />
           </div>
         </div>
 
         {/* Sidebar Toggle Button */}
         {!showSidebar && (
-          <button 
+          <button
             className="sidebar-toggle-btn"
             onClick={toggleSidebar}
             title="Open Feature Tree & Operations"
@@ -296,7 +326,7 @@ const App = () => {
         <div className={`collapsible-sidebar ${showSidebar ? 'open' : 'closed'}`}>
           <div className="sidebar-header">
             <h3>Features & Operations</h3>
-            <button 
+            <button
               className="sidebar-close-btn"
               onClick={closeSidebar}
               title="Close Sidebar"
@@ -304,15 +334,15 @@ const App = () => {
               ×
             </button>
           </div>
-          
+
           <div className="sidebar-content">
-            <FeatureTree 
+            <FeatureTree
               features={features}
               onFeatureToggle={handleFeatureToggle}
               onFeatureDelete={handleFeatureDelete}
               onFeatureSelect={handleFeatureSelect}
             />
-            <CADOperations 
+            <CADOperations
               selectedFeature={selectedFeature}
               onOperation={handleCADOperation}
             />
@@ -330,7 +360,7 @@ const App = () => {
         <div className="ai-chat">
           <div className="chat-messages">
             <div className="ai-message">
-              <strong>🤖 Torquy:</strong><br/>
+              <strong>🤖 Torquy:</strong><br />
               Hello! I'm Torquy, your CAD assistant. I can help you with:
               <ul>
                 <li>"Create a 10mm hole here"</li>
@@ -343,9 +373,9 @@ const App = () => {
             </div>
           </div>
           <div className="chat-input">
-            <input 
-              type="text" 
-              placeholder="Ask me to edit your model..." 
+            <input
+              type="text"
+              placeholder="Ask me to edit your model..."
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
                   // Handle AI command input

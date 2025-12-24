@@ -1,14 +1,17 @@
 // src/components/ThreeViewer.js
-import React, { Suspense, useRef, useState, useImperativeHandle, forwardRef } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Grid, Box, Sphere, Cylinder, Cone, Html } from '@react-three/drei';
+import React, { Suspense, useRef, useState, useImperativeHandle, forwardRef, useEffect } from 'react';
+import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber';
+import { OrbitControls, Grid, Box, Sphere, Cylinder, Cone, Html, useGLTF, Center } from '@react-three/drei';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
+
 
 // Sample 3D objects for demonstration
 const SampleCube = ({ position = [0, 1, 0] }) => {
   const meshRef = useRef();
   const [hovered, setHovered] = useState(false);
-  
+
   useFrame((state, delta) => {
     if (meshRef.current) {
       meshRef.current.rotation.x += delta * 0.5;
@@ -24,8 +27,8 @@ const SampleCube = ({ position = [0, 1, 0] }) => {
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
     >
-      <meshStandardMaterial 
-        color={hovered ? '#ff6b6b' : '#4ecdc4'} 
+      <meshStandardMaterial
+        color={hovered ? '#ff6b6b' : '#4ecdc4'}
         transparent
         opacity={0.8}
       />
@@ -35,14 +38,14 @@ const SampleCube = ({ position = [0, 1, 0] }) => {
 
 const SampleSphere = ({ position = [4, 1, 0] }) => {
   const meshRef = useRef();
-  
+
   return (
     <Sphere
       ref={meshRef}
       position={position}
       args={[1.5, 32, 32]}
     >
-      <meshStandardMaterial 
+      <meshStandardMaterial
         color="#45b7d1"
         metalness={0.6}
         roughness={0.2}
@@ -57,7 +60,7 @@ const SampleCylinder = ({ position = [-4, 1, 0] }) => {
       position={position}
       args={[1, 1, 3, 16]}
     >
-      <meshStandardMaterial 
+      <meshStandardMaterial
         color="#96ceb4"
         metalness={0.3}
         roughness={0.4}
@@ -69,27 +72,16 @@ const SampleCylinder = ({ position = [-4, 1, 0] }) => {
 const WorkPlane = () => {
   return (
     <>
-      {/* Main work plane */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
-        <planeGeometry args={[20, 20]} />
-        <meshStandardMaterial 
-          color="#f8f9fa" 
-          transparent 
-          opacity={0.8}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      
-      {/* Grid */}
-      <Grid 
-        args={[20, 20]} 
-        cellSize={1} 
-        cellThickness={0.5} 
-        cellColor="#e9ecef" 
-        sectionSize={5} 
-        sectionThickness={1} 
-        sectionColor="#adb5bd"
-        fadeDistance={25}
+      {/* Grid only - Blender style, no solid plane */}
+      <Grid
+        args={[30, 30]}
+        cellSize={1}
+        cellThickness={0.6}
+        cellColor="#404040"
+        sectionSize={5}
+        sectionThickness={1.2}
+        sectionColor="#555555"
+        fadeDistance={35}
         fadeStrength={1}
         position={[0, 0, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -97,6 +89,69 @@ const WorkPlane = () => {
     </>
   );
 };
+
+// Component to load and display external GLB/GLTF models
+const LoadedModel = ({ url, onLoad, onError }) => {
+  const groupRef = useRef();
+  const { scene } = useGLTF(url, true); // true enables draco decoder
+
+  useEffect(() => {
+    if (scene) {
+      // Calculate bounding box to center and scale model
+      const box = new THREE.Box3().setFromObject(scene);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+
+      // Calculate scale to fit model in view (max dimension = 5 units)
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const scale = maxDim > 0 ? 5 / maxDim : 1;
+
+      // Report model info
+      if (onLoad) {
+        onLoad({
+          vertices: countVertices(scene),
+          size: { x: size.x, y: size.y, z: size.z },
+          scale,
+        });
+      }
+    }
+  }, [scene, onLoad]);
+
+  // Count total vertices in scene
+  const countVertices = (obj) => {
+    let count = 0;
+    obj.traverse((child) => {
+      if (child.isMesh && child.geometry) {
+        const pos = child.geometry.attributes.position;
+        if (pos) count += pos.count;
+      }
+    });
+    return count;
+  };
+
+  return (
+    <Center>
+      <primitive object={scene.clone()} />
+    </Center>
+  );
+};
+
+// Error boundary for model loading
+const ModelLoadingError = ({ error }) => (
+  <Html center>
+    <div style={{
+      padding: '20px',
+      background: 'rgba(255, 100, 100, 0.9)',
+      borderRadius: '8px',
+      color: 'white',
+      textAlign: 'center',
+      maxWidth: '300px'
+    }}>
+      <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>⚠️ Failed to load model</div>
+      <div style={{ fontSize: '12px' }}>{error?.message || 'Unknown error'}</div>
+    </div>
+  </Html>
+);
 
 const CameraController = forwardRef((props, ref) => {
   const { camera } = useThree();
@@ -112,7 +167,7 @@ const CameraController = forwardRef((props, ref) => {
         controlsRef.current.update();
       }
     },
-    
+
     // Front view
     setFrontView: () => {
       camera.position.set(0, 1, 10);
@@ -122,7 +177,7 @@ const CameraController = forwardRef((props, ref) => {
         controlsRef.current.update();
       }
     },
-    
+
     // Top view
     setTopView: () => {
       camera.position.set(0, 10, 0);
@@ -132,7 +187,7 @@ const CameraController = forwardRef((props, ref) => {
         controlsRef.current.update();
       }
     },
-    
+
     // Right view
     setRightView: () => {
       camera.position.set(10, 1, 0);
@@ -142,7 +197,7 @@ const CameraController = forwardRef((props, ref) => {
         controlsRef.current.update();
       }
     },
-    
+
     // Isometric view
     setIsoView: () => {
       camera.position.set(8, 8, 8);
@@ -155,7 +210,7 @@ const CameraController = forwardRef((props, ref) => {
   }));
 
   return (
-    <OrbitControls 
+    <OrbitControls
       ref={controlsRef}
       enablePan={true}
       enableZoom={true}
@@ -168,35 +223,42 @@ const CameraController = forwardRef((props, ref) => {
   );
 });
 
-const Scene = ({ cameraRef, activeTool, onGeometryCreated }) => {
+const Scene = ({ cameraRef, activeTool, onGeometryCreated, modelUrl, onModelLoad }) => {
   return (
     <>
       {/* Lighting */}
       <ambientLight intensity={0.4} />
-      <directionalLight 
-        position={[10, 10, 5]} 
+      <directionalLight
+        position={[10, 10, 5]}
         intensity={1}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
       />
       <pointLight position={[-10, -10, -10]} intensity={0.3} />
-      
+
       {/* Camera Controller */}
       <CameraController ref={cameraRef} />
-      
+
       {/* Work plane and grid */}
       <WorkPlane />
-      
-      {/* Sample CAD objects - will be hidden when drawing */}
-      {activeTool === 'select' && (
-        <>
-          <SampleCube />
-          <SampleSphere />
-          <SampleCylinder />
-        </>
+
+      {/* Loaded external model OR sample objects */}
+      {modelUrl ? (
+        <Suspense fallback={<LoadingSpinner />}>
+          <LoadedModel url={modelUrl} onLoad={onModelLoad} />
+        </Suspense>
+      ) : (
+        // Sample CAD objects - shown when no model is loaded
+        activeTool === 'select' && (
+          <>
+            <SampleCube />
+            <SampleSphere />
+            <SampleCylinder />
+          </>
+        )
       )}
-      
+
       {/* Coordinate system indicator */}
       <group position={[-8, 0, 8]}>
         {/* X-axis - Red */}
@@ -206,7 +268,7 @@ const Scene = ({ cameraRef, activeTool, onGeometryCreated }) => {
         <Cone args={[0.1, 0.3]} position={[2.2, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
           <meshStandardMaterial color="#ff0000" />
         </Cone>
-        
+
         {/* Y-axis - Green */}
         <Cylinder args={[0.05, 0.05, 2]} position={[0, 1, 0]}>
           <meshStandardMaterial color="#00ff00" />
@@ -214,7 +276,7 @@ const Scene = ({ cameraRef, activeTool, onGeometryCreated }) => {
         <Cone args={[0.1, 0.3]} position={[0, 2.2, 0]}>
           <meshStandardMaterial color="#00ff00" />
         </Cone>
-        
+
         {/* Z-axis - Blue */}
         <Cylinder args={[0.05, 0.05, 2]} position={[0, 0, 1]} rotation={[Math.PI / 2, 0, 0]}>
           <meshStandardMaterial color="#0000ff" />
@@ -222,7 +284,7 @@ const Scene = ({ cameraRef, activeTool, onGeometryCreated }) => {
         <Cone args={[0.1, 0.3]} position={[0, 0, 2.2]} rotation={[Math.PI / 2, 0, 0]}>
           <meshStandardMaterial color="#0000ff" />
         </Cone>
-        
+
         {/* Labels */}
         <Html position={[2.5, 0, 0]}>
           <div style={{ color: '#ff0000', fontWeight: 'bold', fontSize: '14px' }}>X</div>
@@ -241,21 +303,23 @@ const Scene = ({ cameraRef, activeTool, onGeometryCreated }) => {
 const LoadingSpinner = () => (
   <Html center>
     <div style={{
-      padding: '20px',
-      background: 'rgba(255, 255, 255, 0.9)',
+      padding: '24px 32px',
+      background: 'rgba(30, 30, 30, 0.95)',
       borderRadius: '8px',
-      textAlign: 'center'
+      textAlign: 'center',
+      border: '1px solid rgba(80, 80, 80, 0.5)',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
     }}>
-      <div style={{ 
-        border: '3px solid #f3f3f3',
-        borderTop: '3px solid #4ecdc4',
+      <div style={{
+        border: '3px solid #404040',
+        borderTop: '3px solid #3b82f6',
         borderRadius: '50%',
-        width: '30px',
-        height: '30px',
-        animation: 'spin 1s linear infinite',
-        margin: '0 auto 10px'
+        width: '36px',
+        height: '36px',
+        animation: 'spin 0.8s linear infinite',
+        margin: '0 auto 12px'
       }} />
-      <div>Loading 3D Scene...</div>
+      <div style={{ color: '#ccc', fontSize: '13px', fontWeight: '500' }}>Loading 3D Model...</div>
     </div>
   </Html>
 );
@@ -263,7 +327,7 @@ const LoadingSpinner = () => (
 const ThreeViewer = forwardRef((props, ref) => {
   const cameraRef = useRef();
   const [geometries, setGeometries] = useState([]);
-  const { activeTool } = props;
+  const { activeTool, modelUrl, onModelLoad } = props;
 
   useImperativeHandle(ref, () => ({
     fitToScreen: () => cameraRef.current?.fitToScreen(),
@@ -283,50 +347,55 @@ const ThreeViewer = forwardRef((props, ref) => {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <Canvas
-        camera={{ 
-          position: [8, 8, 8], 
+        camera={{
+          position: [8, 8, 8],
           fov: 75,
           near: 0.1,
           far: 1000
         }}
         shadows
-        style={{ background: 'linear-gradient(to bottom, #87CEEB 0%, #f8f9fa 100%)' }}
+        style={{ background: 'linear-gradient(to bottom, #2d2d2d 0%, #1a1a1a 100%)' }}
       >
         <Suspense fallback={<LoadingSpinner />}>
-          <Scene 
-            cameraRef={cameraRef} 
+          <Scene
+            cameraRef={cameraRef}
             activeTool={activeTool}
             onGeometryCreated={handleGeometryCreated}
+            modelUrl={modelUrl}
+            onModelLoad={onModelLoad}
           />
         </Suspense>
       </Canvas>
-      
-      {/* 3D Viewer overlay controls */}
+
+      {/* 3D Viewer overlay controls - Blender-style dark theme */}
       <div style={{
         position: 'absolute',
         top: '10px',
         right: '10px',
-        background: 'rgba(255, 255, 255, 0.9)',
-        padding: '10px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-        fontSize: '12px'
+        background: 'rgba(30, 30, 30, 0.9)',
+        padding: '12px 16px',
+        borderRadius: '6px',
+        border: '1px solid rgba(80, 80, 80, 0.5)',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+        fontSize: '11px',
+        color: '#ccc',
+        fontFamily: 'system-ui, -apple-system, sans-serif'
       }}>
-        <div style={{ marginBottom: '5px', fontWeight: 'bold' }}>3D Controls</div>
-        <div>• Left click + drag: Rotate</div>
-        <div>• Right click + drag: Pan</div>
-        <div>• Scroll: Zoom</div>
+        <div style={{ marginBottom: '8px', fontWeight: '600', color: '#fff', fontSize: '12px', borderBottom: '1px solid rgba(80,80,80,0.5)', paddingBottom: '6px' }}>Navigation</div>
+        <div style={{ marginBottom: '3px' }}>🖱️ LMB + drag: Orbit</div>
+        <div style={{ marginBottom: '3px' }}>🖱️ RMB + drag: Pan</div>
+        <div style={{ marginBottom: '3px' }}>⚙️ Scroll: Zoom</div>
         {activeTool !== 'select' && (
           <>
-            <div style={{ marginTop: '10px', fontWeight: 'bold', color: '#ff6600' }}>
-              Drawing Mode: {activeTool}
+            <div style={{ marginTop: '10px', fontWeight: '600', color: '#f59e0b', fontSize: '12px' }}>
+              ✏️ Drawing: {activeTool}
             </div>
-            <div>• Click to draw</div>
+            <div style={{ marginTop: '3px' }}>• Click to draw</div>
             <div>• ESC to cancel</div>
           </>
         )}
       </div>
-      
+
       {/* Geometry counter */}
       {geometries.length > 0 && (
         <div style={{
@@ -342,7 +411,7 @@ const ThreeViewer = forwardRef((props, ref) => {
           Objects: {geometries.length}
         </div>
       )}
-      
+
       <style jsx>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }

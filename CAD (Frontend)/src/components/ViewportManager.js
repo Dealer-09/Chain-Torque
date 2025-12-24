@@ -19,6 +19,25 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [lastPanPos, setLastPanPos] = useState({ x: 0, y: 0 });
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+
+  // ResizeObserver to dynamically resize canvas to fill container
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setCanvasSize({ width: Math.floor(width), height: Math.floor(height) });
+        }
+      }
+    });
+
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, []);
 
   // Update draw mode when activeTool changes
   useEffect(() => {
@@ -78,11 +97,12 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    
+
     const drawGrid = (ctx, width, height) => {
-      ctx.strokeStyle = '#e0e0e0';
+      // Grid lines - dark theme
+      ctx.strokeStyle = '#404040';
       ctx.lineWidth = 0.5;
-      
+
       // Vertical lines
       for (let x = 0; x <= width; x += gridSize) {
         ctx.beginPath();
@@ -90,7 +110,7 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
         ctx.lineTo(x, height);
         ctx.stroke();
       }
-      
+
       // Horizontal lines
       for (let y = 0; y <= height; y += gridSize) {
         ctx.beginPath();
@@ -98,35 +118,35 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
         ctx.lineTo(width, y);
         ctx.stroke();
       }
-      
+
       // Draw origin - prominent center marker
       const centerX = width / 2;
       const centerY = height / 2;
-      
+
       // Center crosshair - more visible
-      ctx.strokeStyle = 'hsl(217 91% 65%)';
+      ctx.strokeStyle = '#3b82f6';
       ctx.lineWidth = 2;
-      
+
       // X axis
       ctx.beginPath();
       ctx.moveTo(centerX - 60, centerY);
       ctx.lineTo(centerX + 60, centerY);
       ctx.stroke();
-      
+
       // Y axis
       ctx.beginPath();
       ctx.moveTo(centerX, centerY - 60);
       ctx.lineTo(centerX, centerY + 60);
       ctx.stroke();
-      
+
       // Origin point - larger and more visible
-      ctx.fillStyle = 'hsl(217 91% 65%)';
+      ctx.fillStyle = '#3b82f6';
       ctx.beginPath();
       ctx.arc(centerX, centerY, 5, 0, 2 * Math.PI);
       ctx.fill();
-      
+
       // Origin label
-      ctx.fillStyle = 'hsl(217 91% 65%)';
+      ctx.fillStyle = '#3b82f6';
       ctx.font = '12px monospace';
       ctx.fillText('0,0', centerX + 10, centerY - 10);
     };
@@ -157,37 +177,101 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
 
     const drawPolygon = (ctx, points, color, showPoints = false) => {
       if (points.length < 2) return;
-      
+
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      
+
       ctx.moveTo(points[0].x, points[0].y);
       for (let i = 1; i < points.length; i++) {
         ctx.lineTo(points[i].x, points[i].y);
       }
-      
+
       // Close the polygon if it has more than 2 points
       if (points.length > 2) {
         ctx.closePath();
       }
-      
+
       ctx.stroke();
-      
+
       // Draw points
       if (showPoints) {
         points.forEach(point => drawPoint(ctx, point, color));
       }
     };
-    
+
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw grid
+
+    // Apply zoom and pan transforms
+    ctx.save();
+
+    // Move to center, apply zoom, then apply pan
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    ctx.translate(centerX + pan.x, centerY + pan.y);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-centerX, -centerY);
+
+    // Draw grid (with dynamic size based on zoom)
     if (snapToGrid) {
-      drawGrid(ctx, canvas.width, canvas.height);
+      const gridExtent = Math.max(canvas.width, canvas.height) / zoom * 2;
+      const startX = centerX - gridExtent / 2;
+      const startY = centerY - gridExtent / 2;
+
+      // Grid lines - dark theme
+      ctx.strokeStyle = '#404040';
+      ctx.lineWidth = 0.5 / zoom;
+
+      // Calculate grid bounds
+      const gridStartX = Math.floor(startX / gridSize) * gridSize;
+      const gridStartY = Math.floor(startY / gridSize) * gridSize;
+      const gridEndX = gridStartX + gridExtent;
+      const gridEndY = gridStartY + gridExtent;
+
+      // Vertical lines
+      for (let x = gridStartX; x <= gridEndX; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, gridStartY);
+        ctx.lineTo(x, gridEndY);
+        ctx.stroke();
+      }
+
+      // Horizontal lines
+      for (let y = gridStartY; y <= gridEndY; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(gridStartX, y);
+        ctx.lineTo(gridEndX, y);
+        ctx.stroke();
+      }
+
+      // Origin crosshair
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 1.5 / zoom;
+
+      // X axis
+      ctx.beginPath();
+      ctx.moveTo(centerX - 30 / zoom, centerY);
+      ctx.lineTo(centerX + 30 / zoom, centerY);
+      ctx.stroke();
+
+      // Y axis
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY - 30 / zoom);
+      ctx.lineTo(centerX, centerY + 30 / zoom);
+      ctx.stroke();
+
+      // Origin point
+      ctx.fillStyle = '#3b82f6';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 3 / zoom, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Origin label
+      ctx.font = `${12 / zoom}px monospace`;
+      ctx.fillText('0,0', centerX + 10 / zoom, centerY - 10 / zoom);
     }
-    
+
     // Draw existing sketches (saved drawings)
     sketches.forEach(sketch => {
       if (sketch.type === 'lines' && sketch.originalLines) {
@@ -208,19 +292,19 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
         });
       }
     });
-    
+
     // Draw active sketch
     if (activeSketch) {
       drawPolygon(ctx, activeSketch.original2DPoints || activeSketch.points, '#0066ff', true);
     }
-    
+
     // Draw completed lines in line mode
     lines.forEach(line => {
       drawLine(ctx, line[0], line[1], 'hsl(217 91% 65%)', 2);
       drawPoint(ctx, line[0], 'hsl(217 91% 65%)', 5);
       drawPoint(ctx, line[1], 'hsl(217 91% 65%)', 5);
     });
-    
+
     // Draw current line being drawn
     if (drawMode === 'line' && currentLine.length === 1) {
       drawPoint(ctx, currentLine[0], 'hsl(25 95% 63%)', 6);
@@ -229,18 +313,18 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       drawPoint(ctx, currentLine[0], 'hsl(25 95% 63%)', 6);
       drawPoint(ctx, currentLine[1], 'hsl(25 95% 63%)', 6);
     }
-    
+
     // Draw polygon being drawn
     if (drawMode === 'polygon' && polygonPoints.length > 0) {
       drawPolygon(ctx, polygonPoints, 'hsl(25 95% 63%)', true);
     }
-    
+
     // Draw completed circles
     circles.forEach(circle => {
       drawCircle(ctx, circle.center, circle.radius, 'hsl(217 91% 65%)', 2);
       drawPoint(ctx, circle.center, 'hsl(217 91% 65%)', 4);
     });
-    
+
     // Draw circle being drawn
     if (drawMode === 'circle' && circleCenter) {
       if (circleRadius > 0) {
@@ -248,7 +332,10 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       }
       drawPoint(ctx, circleCenter, 'hsl(25 95% 63%)', 6);
     }
-  }, [sketches, activeSketch, lines, currentLine, polygonPoints, circles, circleCenter, circleRadius, drawMode, snapToGrid, gridSize]);
+
+    // Restore canvas state (end zoom/pan transforms)
+    ctx.restore();
+  }, [sketches, activeSketch, lines, currentLine, polygonPoints, circles, circleCenter, circleRadius, drawMode, snapToGrid, gridSize, canvasSize, zoom, pan]);
 
   const snapToGridPoint = (x, y) => {
     if (!snapToGrid) return { x, y };
@@ -260,15 +347,15 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
   const handleMouseDown = (e) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    
+
     // Calculate proper canvas coordinates accounting for scaling
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
-    
+
     const snappedPoint = snapToGridPoint(x, y);
-    
+
     if (drawMode === 'line') {
       // Line mode: each click adds a point, every 2 points creates a line
       if (currentLine.length === 0) {
@@ -310,7 +397,7 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       const scaleY = canvas.height / rect.height;
       const x = (e.clientX - rect.left) * scaleX;
       const y = (e.clientY - rect.top) * scaleY;
-      
+
       const dx = x - circleCenter.x;
       const dy = y - circleCenter.y;
       const radius = Math.sqrt(dx * dx + dy * dy);
@@ -338,7 +425,7 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
-    
+
     const preventBrowserZoom = (e) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
@@ -400,10 +487,10 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       // Check if lines form a closed loop
       const isClosed = checkIfClosed([lines[0][0], ...lines.map(l => l[1])]);
       if (onSketchComplete) {
-        onSketchComplete({ 
-          lines: lines, 
+        onSketchComplete({
+          lines: lines,
           type: 'lines',
-          closed: isClosed 
+          closed: isClosed
         });
       }
       // Clear to start new drawing
@@ -411,8 +498,8 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       setCurrentLine([]);
     } else if (drawMode === 'polygon' && polygonPoints.length > 2) {
       if (onSketchComplete) {
-        onSketchComplete({ 
-          points: polygonPoints, 
+        onSketchComplete({
+          points: polygonPoints,
           type: 'polygon',
           closed: true
         });
@@ -421,8 +508,8 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       setPolygonPoints([]);
     } else if (drawMode === 'circle' && circles.length > 0) {
       if (onSketchComplete) {
-        onSketchComplete({ 
-          circles: circles, 
+        onSketchComplete({
+          circles: circles,
           type: 'circles',
           closed: true
         });
@@ -446,11 +533,11 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
         setLines([]);
       }
     }
-    
+
     // Backspace or Delete - Remove last element
     if (e.key === 'Backspace' || e.key === 'Delete') {
       e.preventDefault(); // Prevent browser back navigation
-      
+
       if (drawMode === 'line') {
         if (currentLine.length > 0) {
           setCurrentLine([]);
@@ -470,12 +557,12 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
         }
       }
     }
-    
+
     // Enter - Complete sketch
     if (e.key === 'Enter') {
       completeSketch();
     }
-    
+
     // L key - Switch to line mode
     if (e.key === 'l' && !e.ctrlKey) {
       setDrawMode('line');
@@ -484,7 +571,7 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       setCircleCenter(null);
       setCircleRadius(0);
     }
-    
+
     // P key - Switch to polygon mode
     if (e.key === 'p' && !e.ctrlKey) {
       setDrawMode('polygon');
@@ -493,7 +580,7 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       setCircleCenter(null);
       setCircleRadius(0);
     }
-    
+
     // C key - Switch to circle mode
     if (e.key === 'c' && !e.ctrlKey) {
       setDrawMode('circle');
@@ -525,11 +612,11 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
         </div>
         <div className="toolbar-section">
           <span className="status-text">
-            {drawMode === 'line' 
+            {drawMode === 'line'
               ? `Line Mode: ${lines.length} lines${currentLine.length > 0 ? ' (click to place 2nd point)' : ' (click to start)'}`
               : drawMode === 'polygon'
-              ? `Polygon Mode: ${polygonPoints.length} points${polygonPoints.length > 0 ? ' (double-click or Enter to complete)' : ' (click to start)'}`
-              : `Circle Mode: ${circles.length} circles${circleCenter ? ' (click to set radius)' : ' (click to set center)'}`
+                ? `Polygon Mode: ${polygonPoints.length} points${polygonPoints.length > 0 ? ' (double-click or Enter to complete)' : ' (click to start)'}`
+                : `Circle Mode: ${circles.length} circles${circleCenter ? ' (click to set radius)' : ' (click to set center)'}`
             }
           </span>
         </div>
@@ -544,23 +631,23 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
           </span>
         </div>
       </div>
-      
-      <div 
+
+      <div
         ref={containerRef}
-        style={{ 
-          flex: 1, 
-          overflow: 'hidden', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
+        style={{
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'stretch',
           position: 'relative',
-          backgroundColor: 'hsl(224 71.4% 4.1%)'
+          backgroundColor: '#1a1a1a'
         }}
       >
         <canvas
           ref={canvasRef}
-          width={800}
-          height={600}
+          width={canvasSize.width}
+          height={canvasSize.height}
           className="sketch-canvas"
           onMouseDown={(e) => {
             handleMiddleMouseDown(e);
@@ -570,15 +657,15 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
           onMouseMove={handleMouseMove}
           onWheel={handleWheel}
           onDoubleClick={handleDoubleClick}
-          style={{ 
-            border: '1px solid hsl(240 3.7% 15.9%)', 
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            border: 'none',
             cursor: isPanning ? 'grabbing' : 'crosshair',
-            backgroundColor: '#fafafa',
-            transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
-            transformOrigin: 'center',
-            maxWidth: '100%',
-            maxHeight: '100%',
-            height: '100%'
+            backgroundColor: '#1a1a1a'
           }}
         />
       </div>
@@ -586,16 +673,18 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
   );
 };
 
-const ViewportManager = forwardRef(({ 
-  features, 
-  onFeatureAdd, 
-  onFeatureDelete, 
+const ViewportManager = forwardRef(({
+  features,
+  onFeatureAdd,
+  onFeatureDelete,
   onFeatureUpdate,
   selectedFeature,
   onFeatureSelect,
-  activeTool
+  activeTool,
+  modelUrl,
+  onModelLoad
 }, ref) => {
-  const [viewMode, setViewMode] = useState('2d'); // '2d' or '3d'
+  const [viewMode, setViewMode] = useState(modelUrl ? '3d' : '2d'); // Start in 3D if model provided
   const [sketches, setSketches] = useState([]);
   const [activeSketch, setActiveSketch] = useState(null);
   const threeViewerRef = useRef();
@@ -733,7 +822,7 @@ const ViewportManager = forwardRef(({
 
     if (newSketch) {
       setSketches(prev => [...prev, newSketch]);
-      
+
       // Add to features list
       if (onFeatureAdd) {
         onFeatureAdd(newSketch);
@@ -757,16 +846,16 @@ const ViewportManager = forwardRef(({
             3D Model
           </span>
         </div>
-        
+
         <div className="viewport-controls">
-          <button 
+          <button
             className={`view-toggle ${viewMode === '2d' ? 'active' : ''}`}
             onClick={() => setViewMode('2d')}
             title="Switch to 2D Sketch Mode"
           >
             2D
           </button>
-          <button 
+          <button
             className={`view-toggle ${viewMode === '3d' ? 'active' : ''}`}
             onClick={() => setViewMode('3d')}
             title="Switch to 3D Model View (ISO)"
@@ -774,7 +863,7 @@ const ViewportManager = forwardRef(({
             3D
           </button>
         </div>
-        
+
         <div className="viewport-info">
           <span className="shortcut-hint">
             Press 'I' for Isometric view • ESC for 2D
@@ -798,6 +887,9 @@ const ViewportManager = forwardRef(({
             onFeatureSelect={onFeatureSelect}
             selectedFeature={selectedFeature}
             sketches={sketches}
+            modelUrl={modelUrl}
+            onModelLoad={onModelLoad}
+            activeTool={activeTool}
           />
         )}
       </div>
