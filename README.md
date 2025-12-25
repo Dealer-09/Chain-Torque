@@ -1,8 +1,8 @@
 # ChainTorque
 
-### _Web3 Engineering Platform with AI-Powered CAD Editor_
+### _Web3 Engineering Platform with Browser-Based CAD Editor_
 
-> **ChainTorque** revolutionizes 3D model platforms by combining blockchain technology, AI-driven optimization, and real-time 3D interaction to create a secure, transparent, and intelligent platform for engineering assets.
+> **ChainTorque** revolutionizes 3D model platforms by combining blockchain technology, professional CAD tools, and real-time 3D interaction to create a secure, transparent, and intelligent platform for engineering assets.
 
 ## 🚀 **What is ChainTorque?**
 
@@ -10,39 +10,67 @@ ChainTorque is a comprehensive Web3 platform that solves critical problems in th
 
 - **🛡️ NFT-Based Licensing**: Blockchain-verified ownership and licensing
 - **🎮 Interactive 3D Previews**: Inspect models before purchasing
-- **🤖 AI Assistant "Torquy"**: Intelligent CAD editing and optimization
-- **🎨 Browser-Based CAD Editor**: Professional 3D modeling tools
-- **🌐 Decentralized Storage**: IPFS integration for censorship resistance
+- **🎨 Browser-Based CAD Editor**: Professional 2D sketching + 3D modeling with OpenCascade.js
+- **🌐 Decentralized Storage**: IPFS integration via Lighthouse for censorship resistance
+- **💰 Direct Creator Payments**: 97.5% to seller, 2.5% platform fee via smart contracts
 
 ## 🏗️ **Project Structure**
 
 ```
 ChainTorque/
 ├── Landing Page (Frontend)/     # Vite + React marketing site (Port 5000)
-├── Marketplace (Frontend)/      # Vite + React NFT marketplace (Port 8080)
-├── backend/                     # Express API + Smart contracts (Port 5001)
-└── CAD (Frontend)/              # React CAD editor with Torquy AI (Port 3001)
+├── Marketplace (Frontend)/      # Vite + React + TypeScript NFT marketplace (Port 8080)
+├── CAD (Frontend)/              # Vite + React CAD editor with OpenCascade.js (Port 3001)
+└── backend/                     # Express API + Hardhat Smart Contracts (Port 5001)
 ```
 
 ## 🛠️ **Technologies Used**
 
-- **Runtime**: Bun (3x faster than Node.js)
-- **Frontend**: Next.js, React, Three.js, Tailwind CSS, Vite
-- **Backend**: Express, WASM + Rust, Socket.IO, MongoDB, IPFS
-- **Blockchain**: Solidity (ERC-721), Hardhat, Ethereum/Polygon, Web3.js, OpenZeppelin
-- **AI/ML**: Python (Scikit-learn, Pandas, PyTorch/TensorFlow, HuggingFaceTransformers), VectorDB
-- **DevOps**: Github Actions, Docker, AWS EC2/Azure
+| Layer | Technologies |
+|-------|--------------|
+| **Runtime** | Bun (3x faster than Node.js) |
+| **Frontend** | React 18, Vite, Three.js, @react-three/fiber, Tailwind CSS |
+| **CAD Engine** | OpenCascade.js (WASM), Three.js, Custom 2D Canvas |
+| **Backend** | Express, MongoDB, IPFS (Lighthouse SDK) |
+| **Blockchain** | Solidity (ERC-721), Hardhat, Ethereum Sepolia, ethers.js |
+| **Auth** | Clerk (Web3 wallet + social login) |
+| **Deployment** | Render.com (4 services) |
 
-## 🏗️ **Hybrid Storage Architecture**
+## 🎨 **CAD Editor Features**
 
-ChainTorque uses a dual-storage approach for optimal performance and decentralization:
+The browser-based CAD editor (`CAD (Frontend)/`) provides:
 
-- **IPFS**: Stores 3D model files and images for permanent, censorship-resistant access
-- **MongoDB**: Handles user profiles, transaction history, and search for fast queries
-- **Blockchain**: Records ownership and ensures immutable transaction history
+### 2D Sketching Tools
+- **Line Tool** (L): Draw connected line segments
+- **Polygon Tool** (P): Create closed polygon shapes
+- **Circle Tool** (C): Draw circles with center + radius
+- **Grid Snap**: Automatic alignment to grid
+- **Undo/Redo**: Backspace to undo, full history support
 
-This architecture provides instant user experiences while maintaining true Web3 decentralization for engineering assets.
+### 3D Modeling
+- **Sketch Extrusion**: Convert 2D sketches to 3D solids via OpenCascade.js
+- **Real-time Preview**: Three.js powered 3D viewport with orbit controls
+- **View Controls**: Front, Top, Right, Isometric camera presets
+- **2D/3D Toggle**: Seamless switching between sketch and model modes
 
+### CAD Kernel
+- **OpenCascade.js**: Industry-standard BREP geometry kernel (WASM)
+- **Primitives**: Box, Cylinder, Sphere creation
+- **Boolean Operations**: Union, Cut, Intersection
+- **Memory Managed**: Proper cleanup of WASM objects
+
+### Keyboard Shortcuts
+| Key | Action |
+|-----|--------|
+| L | Line tool |
+| P | Polygon tool |
+| C | Circle tool |
+| I | Toggle 3D view |
+| Enter | Save sketch |
+| ESC | Cancel/Back to 2D |
+| Backspace | Undo last point |
+| Arrow Keys | Pan canvas |
+| Scroll | Zoom |
 
 ## 🚀 **Quick Start**
 
@@ -59,78 +87,108 @@ curl -fsSL https://bun.sh/install | bash
 ### Installation & Running
 ```sh
 # Clone and install
-git clone https://github.com/Dealer-09/ChainTorque.git
-cd ChainTorque
+git clone https://github.com/Dealer-09/Chain-Torque.git
+cd Chain-Torque
 bun install
 
-# Start all services (⚡ 3x faster than npm/pnpm)
+# Start all services (Landing, Marketplace, Backend, CAD)
 bun run dev
 
 # Or run individual services
 bun run dev:landing      # Landing page (Port 5000)
-bun run dev:marketplace  # Marketplace frontend (Port 8080)
+bun run dev:marketplace  # Marketplace (Port 8080)
 bun run dev:backend      # Backend API (Port 5001)
-bun run dev:cad          # CAD editor with Torquy (Port 3001)
+bun run dev:cad          # CAD editor (Port 3001)
 ```
-
-> **Why Bun?** This project uses [Bun](https://bun.sh) for lightning-fast performance, smaller footprint, and native TypeScript support. No more slow installs! 🚀
-
-## 🎯 **Key Features**
-
-### **For Creators**
-- Upload and mint 3D models as NFTs
-- Set custom licensing and pricing
-- AI-powered model optimization
-- Automatic royalty distribution
-
-### **For Engineers**
-- Interactive 3D model previews
-- Professional browser-based CAD tools
-- "Torquy" AI assistant for design help
-- Blockchain-verified ownership
-
-### **For Developers**
-- Open-source modular architecture
-- Web3 integration examples
-- AI/ML implementation patterns
-- Comprehensive API documentation
 
 ## 🗺️ **Development Status**
 
-**✅ Completed**
-- Project architecture (Bun monorepo)
-- 3D marketplace with NFT minting & purchasing
-- Decentralized purchase flow (MetaMask → Smart Contract → IPFS)
-- ETH payments: 97.5% to seller, 2.5% platform fee
-- CAD editor with Three.js visualization
-- "Torquy" AI assistant interface
-- Smart contract on Sepolia testnet
-- IPFS storage via Lighthouse
-- Search & category filtering
-- Purchased items display with download
-- Wallet address consistency across pages
-- Dashboard with user stats
+### ✅ Completed
+- [x] Bun monorepo with npm workspaces
+- [x] 3D marketplace with NFT minting & purchasing
+- [x] Decentralized purchase flow (MetaMask → Smart Contract → IPFS)
+- [x] ETH payments: 97.5% to seller, 2.5% platform fee
+- [x] Smart contract deployed on Sepolia testnet
+- [x] IPFS storage via Lighthouse SDK
+- [x] Search & category filtering
+- [x] Purchased items with download links
+- [x] Dashboard with user stats
+- [x] Clerk authentication integration
+- [x] **CAD Editor with OpenCascade.js**
+  - [x] 2D Canvas with Line, Polygon, Circle tools
+  - [x] Grid snap and pan/zoom controls
+  - [x] Sketch extrusion to 3D solids
+  - [x] Three.js 3D viewport with camera controls
+  - [x] Feature Tree with visibility/delete
+  - [x] Production build optimized
+- [x] Render.com deployment (all 4 services)
 
-**🔄 In Progress**
-- Render.com deployment
-- Relist/resale functionality
-- Wishlist & cart persistence
+### 🔄 In Progress
+- [ ] AI Assistant "Torquy" for CAD commands
+- [ ] Relist/resale functionality
+- [ ] Save/Load CAD projects
 
-**📋 Planned**
-- User profile pages
-- Sales history view
-- Multi-chain support (Polygon)
-- AR/VR model preview
-- Mobile app
+### 📋 Planned
+- [ ] STL/GLB export from CAD editor
+- [ ] User profile pages
+- [ ] Multi-chain support (Polygon)
+- [ ] AR/VR model preview
+- [ ] Marketplace Mobile App
+
+## 🏗️ **Architecture**
+
+```mermaid
+graph TD
+    subgraph Frontend
+        LP[Landing Page<br/>Vite + React]
+        MP[Marketplace<br/>Vite + React + TS]
+        CAD[CAD Editor<br/>Vite + React + Three.js]
+    end
+    
+    subgraph Backend
+        API[Express API<br/>Port 5001]
+        SC[Smart Contract<br/>Sepolia]
+        IPFS[Lighthouse<br/>IPFS Storage]
+        DB[(MongoDB)]
+    end
+    
+    LP --> API
+    MP --> API
+    MP --> SC
+    MP --> IPFS
+    CAD --> API
+    API --> DB
+    API --> IPFS
+```
+
+## 🔒 **Environment Variables**
+
+Create `.env` in the project root:
+```env
+# MongoDB
+MONGODB_URI=mongodb+srv://...
+
+# Ethereum
+RPC_URL=https://sepolia.infura.io/v3/...
+PRIVATE_KEY=your_wallet_private_key
+CONTRACT_ADDRESS=0x...
+
+# Clerk Auth
+VITE_CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+
+# IPFS (Lighthouse)
+LIGHTHOUSE_API_KEY=...
+```
 
 ## 🤝 **Contributing**
 
 We welcome contributions! Areas of focus:
 
-- **🤖 AI/ML**: Enhance Torquy's capabilities
-- **🎨 Frontend**: Improve user experience
-- **🔧 Blockchain**: Smart contract optimization
-- **📝 Documentation**: Help others understand the codebase
+- **🎨 CAD Features**: Enhance 2D/3D tools, add new primitives
+- **🤖 AI Integration**: Implement Torquy AI assistant
+- **🔧 Blockchain**: Smart contract optimization, multi-chain
+- **📝 Documentation**: API docs, tutorials
 
 ## 📄 **License**
 
@@ -143,6 +201,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 **🔗⚙️ Building the Future of Engineering, One Block at a Time**
 
 [![Get Started](https://img.shields.io/badge/Get%20Started-0066cc?style=for-the-badge&logo=rocket)](#quick-start)
-[![Contribute](https://img.shields.io/badge/Contribute-28a745?style=for-the-badge&logo=github)](#contributing)
+[![CAD Editor](https://img.shields.io/badge/CAD%20Editor-28a745?style=for-the-badge&logo=cube)](#cad-editor-features)
+[![Contribute](https://img.shields.io/badge/Contribute-ff6b6b?style=for-the-badge&logo=github)](#contributing)
 
 </div>
