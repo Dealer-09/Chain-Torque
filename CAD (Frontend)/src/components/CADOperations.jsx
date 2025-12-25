@@ -132,17 +132,6 @@ const CADOperations = ({ sketches = [], onExtrudeComplete }) => {
         )}
       </div>
 
-      {/* Info Panel */}
-      <div className="operation-panel info-panel">
-        <h4>Workflow</h4>
-        <ol className="workflow-steps">
-          <li>Draw shape in 2D (L=line, P=polygon)</li>
-          <li>Close the loop, press Enter</li>
-          <li>Press I for 3D view</li>
-          <li>Select sketch above, set height</li>
-          <li>Click Extrude</li>
-        </ol>
-      </div>
     </div>
   );
 };

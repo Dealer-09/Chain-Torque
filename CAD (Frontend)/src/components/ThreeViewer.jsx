@@ -83,6 +83,26 @@ const CameraController = forwardRef((props, ref) => {
       camera.lookAt(0, 1, 0);
       controlsRef.current?.target.set(0, 1, 0);
       controlsRef.current?.update();
+    },
+    zoomIn: () => {
+      // Move camera 20% closer to target
+      const pos = camera.position.clone();
+      const target = controlsRef.current?.target || { x: 0, y: 1, z: 0 };
+      const direction = pos.clone().sub(target).normalize();
+      const distance = pos.distanceTo(target);
+      const newDistance = Math.max(3, distance * 0.8);
+      camera.position.copy(target).add(direction.multiplyScalar(newDistance));
+      controlsRef.current?.update();
+    },
+    zoomOut: () => {
+      // Move camera 20% further from target
+      const pos = camera.position.clone();
+      const target = controlsRef.current?.target || { x: 0, y: 1, z: 0 };
+      const direction = pos.clone().sub(target).normalize();
+      const distance = pos.distanceTo(target);
+      const newDistance = Math.min(50, distance * 1.2);
+      camera.position.copy(target).add(direction.multiplyScalar(newDistance));
+      controlsRef.current?.update();
     }
   }));
 
@@ -261,6 +281,8 @@ const ThreeViewer = forwardRef((props, ref) => {
     setTopView: () => cameraRef.current?.setTopView(),
     setRightView: () => cameraRef.current?.setRightView(),
     setIsoView: () => cameraRef.current?.setIsoView(),
+    zoomIn: () => cameraRef.current?.zoomIn(),
+    zoomOut: () => cameraRef.current?.zoomOut(),
   }));
 
   const handleExtrude = async () => {

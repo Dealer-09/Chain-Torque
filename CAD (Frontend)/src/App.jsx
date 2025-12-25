@@ -21,7 +21,6 @@ import {
   FaTrash,
   FaEraser,
 } from "react-icons/fa";
-
 import ViewportManager from "./components/ViewportManager.jsx";
 import FeatureTree from "./components/FeatureTree.jsx";
 import CADOperations from "./components/CADOperations.jsx";
@@ -38,6 +37,13 @@ const App = () => {
   const [selectedFeature, setSelectedFeature] = useState(null);
   const [showCADTest, setShowCADTest] = useState(false); // Disabled in production
   const viewportRef = useRef();
+
+  // Project state
+  const [projectName, setProjectName] = useState('Untitled Project');
+
+  // Undo/Redo history
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
 
   // Model loading state
   const [modelUrl, setModelUrl] = useState(null);
@@ -130,7 +136,7 @@ const App = () => {
     // TODO: Implement with actual geometry operations
   };
 
-  // View control functions
+  // View control functions - only called in 3D mode
   const handleViewChange = (view) => {
     setActiveView(view);
     if (viewportRef.current) {
@@ -153,18 +159,88 @@ const App = () => {
     }
   };
 
-  // Zoom and fit functions
+  // Save Project
+  const handleSave = () => {
+    const name = prompt('Enter project name:', projectName);
+    if (!name) return;
+
+    setProjectName(name);
+    const projectData = {
+      name,
+      features,
+      viewMode,
+      savedAt: new Date().toISOString()
+    };
+
+    localStorage.setItem(`cad_project_${name}`, JSON.stringify(projectData));
+    alert(`Project "${name}" saved successfully!`);
+  };
+
+  // Download Project
+  const handleDownload = () => {
+    const format = prompt('Enter format (stl or glb):', 'glb');
+    if (!format || !['stl', 'glb'].includes(format.toLowerCase())) {
+      alert('Please enter "stl" or "glb"');
+      return;
+    }
+
+    // For now, export project data as JSON (real STL/GLB would need OpenCascade export)
+    const projectData = {
+      name: projectName,
+      features,
+      exportedAt: new Date().toISOString()
+    };
+
+    const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectName}.${format.toLowerCase()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Undo - send event to ViewportManager
+  const handleUndo = () => {
+    // Dispatch keyboard event to trigger backspace behavior
+    const event = new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true });
+    document.dispatchEvent(event);
+  };
+
+  // Redo - currently not implemented fully
+  const handleRedo = () => {
+    alert('Redo not yet implemented');
+  };
+
+  // Clear All with confirmation
+  const handleClearAll = () => {
+    const confirmed = window.confirm('⚠️ Clear All?\n\nThis will delete all sketches and features. This action cannot be undone.\n\nClick OK to clear, or Cancel to keep your work.');
+    if (confirmed) {
+      // Clear App features
+      setFeatures([]);
+      // Clear ViewportManager sketches
+      if (viewportRef.current?.clearAll) {
+        viewportRef.current.clearAll();
+      }
+      alert('All content cleared. Starting fresh!');
+    }
+  };
+
+  // Zoom functions - dispatch to ViewportManager
   const handleZoomIn = () => {
-    // Handled by camera controls
+    viewportRef.current?.zoomIn();
   };
 
   const handleZoomOut = () => {
-    // Handled by camera controls
+    viewportRef.current?.zoomOut();
   };
 
+  // Fit to Screen - toggle browser fullscreen
   const handleFitToScreen = () => {
-    if (viewportRef.current) {
-      viewportRef.current.fitToScreen();
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => { });
+    } else {
+      document.exitFullscreen().catch(() => { });
     }
   };
 
@@ -182,14 +258,14 @@ const App = () => {
           )}
         </div>
         <div className="topbar-icons">
-          <FaFile title="New File" />
-          <FaSave title="Save" />
-          <FaUndo title="Undo" />
-          <FaRedo title="Redo" />
+          <FaFile title="New File" onClick={handleClearAll} style={{ cursor: 'pointer' }} />
+          <FaSave title="Save Project" onClick={handleSave} style={{ cursor: 'pointer' }} />
+          <FaUndo title="Undo (Backspace)" onClick={handleUndo} style={{ cursor: 'pointer' }} />
+          <FaRedo title="Redo" onClick={handleRedo} style={{ cursor: 'pointer' }} />
           <FaCopy title="Copy" />
           <FaCut title="Cut" />
           <FaPaste title="Paste" />
-          <FaDownload title="Export" />
+          <FaDownload title="Download (STL/GLB)" onClick={handleDownload} style={{ cursor: 'pointer' }} />
           <FaSearchPlus
             title="Zoom In"
             onClick={handleZoomIn}
@@ -252,9 +328,10 @@ const App = () => {
               onClick={() => handleToolSelect('eraser')}
             />
             <FaTrash
-              title="Clear All (ESC)"
+              title="Clear All"
               className={activeTool === 'delete' ? 'active' : ''}
-              onClick={() => handleToolSelect('delete')}
+              onClick={handleClearAll}
+              style={{ cursor: 'pointer' }}
             />
           </div>
         </div>
@@ -282,36 +359,35 @@ const App = () => {
 
             <span className="viewport-label">{viewMode === '2d' ? '2D Sketch' : '3D Model'}</span>
 
-            <div className="view-controls">
-              <button
-                className={activeView === 'front' ? 'active' : ''}
-                onClick={() => handleViewChange('front')}
-                disabled={viewMode === '2d'}
-              >
-                Front
-              </button>
-              <button
-                className={activeView === 'top' ? 'active' : ''}
-                onClick={() => handleViewChange('top')}
-                disabled={viewMode === '2d'}
-              >
-                Top
-              </button>
-              <button
-                className={activeView === 'right' ? 'active' : ''}
-                onClick={() => handleViewChange('right')}
-                disabled={viewMode === '2d'}
-              >
-                Right
-              </button>
-              <button
-                className={activeView === 'iso' ? 'active' : ''}
-                onClick={() => handleViewChange('iso')}
-                disabled={viewMode === '2d'}
-              >
-                Iso
-              </button>
-            </div>
+            {/* View controls - only in 3D mode */}
+            {viewMode === '3d' && (
+              <div className="view-controls">
+                <button
+                  className={activeView === 'front' ? 'active' : ''}
+                  onClick={() => handleViewChange('front')}
+                >
+                  Front
+                </button>
+                <button
+                  className={activeView === 'top' ? 'active' : ''}
+                  onClick={() => handleViewChange('top')}
+                >
+                  Top
+                </button>
+                <button
+                  className={activeView === 'right' ? 'active' : ''}
+                  onClick={() => handleViewChange('right')}
+                >
+                  Right
+                </button>
+                <button
+                  className={activeView === 'iso' ? 'active' : ''}
+                  onClick={() => handleViewChange('iso')}
+                >
+                  Iso
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Viewport Manager - 2D/3D Switching */}
@@ -325,6 +401,7 @@ const App = () => {
               selectedFeature={selectedFeature}
               onFeatureSelect={handleFeatureSelect}
               activeTool={activeTool}
+              onToolChange={setActiveTool}
               modelUrl={modelUrl}
               onModelLoad={handleModelLoad}
               viewMode={viewMode}

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } f
 import ThreeViewer from './ThreeViewer.jsx';
 
 // Integrated 2D Canvas Component
-const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, activeTool, onToolAction }) => {
+const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, activeTool, onToolAction, onToolChange, zoom: zoomProp, onZoomChange }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [drawMode, setDrawMode] = useState('line'); // 'line', 'polygon', or 'circle'
@@ -15,7 +15,10 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
   const [circles, setCircles] = useState([]); // Completed circles
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [gridSize] = useState(20);
-  const [zoom, setZoom] = useState(1);
+  // Use prop zoom if provided, otherwise local state
+  const [localZoom, setLocalZoom] = useState(1);
+  const zoom = zoomProp ?? localZoom;
+  const setZoom = onZoomChange ?? setLocalZoom;
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [lastPanPos, setLastPanPos] = useState({ x: 0, y: 0 });
@@ -570,6 +573,7 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       setCurrentLine([]);
       setCircleCenter(null);
       setCircleRadius(0);
+      if (onToolChange) onToolChange('line');
     }
 
     // P key - Switch to polygon mode
@@ -579,6 +583,7 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       setCurrentLine([]);
       setCircleCenter(null);
       setCircleRadius(0);
+      if (onToolChange) onToolChange('polygon');
     }
 
     // C key - Switch to circle mode
@@ -589,6 +594,26 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       setCurrentLine([]);
       setCircleCenter(null);
       setCircleRadius(0);
+      if (onToolChange) onToolChange('circle');
+    }
+
+    // Arrow keys - Pan canvas
+    const panStep = 20;
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setPan(prev => ({ x: prev.x, y: prev.y + panStep }));
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setPan(prev => ({ x: prev.x, y: prev.y - panStep }));
+    }
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setPan(prev => ({ x: prev.x + panStep, y: prev.y }));
+    }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      setPan(prev => ({ x: prev.x - panStep, y: prev.y }));
     }
   };
 
@@ -622,7 +647,7 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
         </div>
         <div className="toolbar-section">
           <span className="help-text">
-            L: line • P: polygon • C: circle • Scroll: zoom • Shift+Drag: pan • Backspace: undo • ESC: cancel • Enter: save • I: 3D
+            L: line • P: polygon • C: circle • Scroll: zoom • ↑↓←→: pan • Backspace: undo • ESC: cancel • Enter: save • I: 3D
           </span>
         </div>
         <div className="toolbar-section">
@@ -681,6 +706,7 @@ const ViewportManager = forwardRef(({
   selectedFeature,
   onFeatureSelect,
   activeTool,
+  onToolChange,
   modelUrl,
   onModelLoad,
   viewMode: viewModeProp,
@@ -693,33 +719,43 @@ const ViewportManager = forwardRef(({
 
   const [sketches, setSketches] = useState([]);
   const [activeSketch, setActiveSketch] = useState(null);
+  const [zoom, setZoom] = useState(1); // Zoom for 2D canvas
   const threeViewerRef = useRef();
 
   // Expose camera control methods to parent
   useImperativeHandle(ref, () => ({
     setFrontView: () => {
-      if (threeViewerRef.current && viewMode === '3d') {
-        threeViewerRef.current.setFrontView();
-      }
+      threeViewerRef.current?.setFrontView();
     },
     setTopView: () => {
-      if (threeViewerRef.current && viewMode === '3d') {
-        threeViewerRef.current.setTopView();
-      }
+      threeViewerRef.current?.setTopView();
     },
     setRightView: () => {
-      if (threeViewerRef.current && viewMode === '3d') {
-        threeViewerRef.current.setRightView();
-      }
+      threeViewerRef.current?.setRightView();
     },
     setIsoView: () => {
-      if (threeViewerRef.current && viewMode === '3d') {
-        threeViewerRef.current.setIsoView();
-      }
+      threeViewerRef.current?.setIsoView();
     },
     fitToScreen: () => {
-      if (threeViewerRef.current && viewMode === '3d') {
-        threeViewerRef.current.fitToScreen();
+      threeViewerRef.current?.fitToScreen();
+    },
+    clearAll: () => {
+      // Clear all sketches and reset state
+      setSketches([]);
+      setActiveSketch(null);
+    },
+    zoomIn: () => {
+      if (viewMode === '2d') {
+        setZoom(prev => Math.min(5, prev + 0.2));
+      } else if (threeViewerRef.current?.zoomIn) {
+        threeViewerRef.current.zoomIn();
+      }
+    },
+    zoomOut: () => {
+      if (viewMode === '2d') {
+        setZoom(prev => Math.max(0.2, prev - 0.2));
+      } else if (threeViewerRef.current?.zoomOut) {
+        threeViewerRef.current.zoomOut();
       }
     }
   }));
@@ -727,19 +763,23 @@ const ViewportManager = forwardRef(({
   // Listen for ISO key press to switch to 3D
   useEffect(() => {
     const handleKeyPress = (e) => {
-      // Check for 'i' key (for ISO view) - switch to 3D
-      if (e.key.toLowerCase() === 'i' && !e.ctrlKey && !e.altKey && !e.target.matches('input, textarea')) {
-        setViewMode('3d');
+      // Check for 'i' key (for ISO view)
+      if (e.key.toLowerCase() === 'i' && !e.ctrlKey && !e.altKey) {
+        toggleViewMode();
       }
       // Escape to go back to 2D
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && viewMode === '3d') {
         setViewMode('2d');
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [setViewMode]);
+  }, [viewMode]);
+
+  const toggleViewMode = () => {
+    setViewMode(prev => prev === '2d' ? '3d' : '2d');
+  };
 
   const handleSketchComplete = (sketchData) => {
     // Get canvas dimensions for proper normalization
@@ -847,6 +887,9 @@ const ViewportManager = forwardRef(({
             activeSketch={activeSketch}
             onPointAdd={handlePointAdd}
             activeTool={activeTool}
+            onToolChange={onToolChange}
+            zoom={zoom}
+            onZoomChange={setZoom}
           />
         ) : (
           <ThreeViewer
