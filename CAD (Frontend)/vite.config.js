@@ -12,20 +12,10 @@ export default defineConfig({
         outDir: 'build',
         sourcemap: false,
     },
-    // Handle .js files containing JSX
-    esbuild: {
-        loader: 'jsx',
-        include: /src\/.*\.js$/,
-        exclude: [],
+    // Configure for monorepo - look for dependencies in root node_modules
+    optimizeDeps: {
+        include: ['react', 'react-dom', 'opencascade.js', 'three'],
     },
     // WASM support for OpenCascade.js
-    optimizeDeps: {
-        exclude: ['opencascade.js'],
-        esbuildOptions: {
-            loader: {
-                '.js': 'jsx',
-            },
-        },
-    },
     assetsInclude: ['**/*.wasm'],
 });

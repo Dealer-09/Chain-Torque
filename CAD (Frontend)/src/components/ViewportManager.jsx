@@ -277,6 +277,9 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
 
     // Draw existing sketches (saved drawings)
     sketches.forEach(sketch => {
+      // Skip hidden sketches
+      if (sketch.visible === false) return;
+
       if (sketch.type === 'lines' && sketch.originalLines) {
         // Draw saved lines using original canvas coordinates
         sketch.originalLines.forEach(line => {
@@ -361,6 +364,11 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
 
     if (drawMode === 'line') {
       // Line mode: each click adds a point, every 2 points creates a line
+      // Limit to 500 lines to prevent memory issues
+      if (lines.length >= 500) {
+        alert('Maximum 500 lines reached. Press Enter to save or Backspace to undo.');
+        return;
+      }
       if (currentLine.length === 0) {
         setCurrentLine([snappedPoint]);
       } else if (currentLine.length === 1) {
@@ -372,6 +380,11 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       }
     } else if (drawMode === 'polygon') {
       // Polygon mode: continuous points
+      // Limit to 500 points to prevent memory issues
+      if (polygonPoints.length >= 500) {
+        alert('Maximum 500 points reached. Press Enter to save or Backspace to undo.');
+        return;
+      }
       setPolygonPoints(prev => [...prev, snappedPoint]);
       if (onPointAdd) onPointAdd(snappedPoint);
     } else if (drawMode === 'circle') {
@@ -380,6 +393,13 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
         setCircleCenter(snappedPoint);
       } else {
         // Calculate radius and complete circle
+        // Limit to 100 circles
+        if (circles.length >= 100) {
+          alert('Maximum 100 circles reached. Press Enter to save.');
+          setCircleCenter(null);
+          setCircleRadius(0);
+          return;
+        }
         const dx = snappedPoint.x - circleCenter.x;
         const dy = snappedPoint.y - circleCenter.y;
         const radius = Math.sqrt(dx * dx + dy * dy);
@@ -482,7 +502,9 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
     const first = points[0];
     const last = points[points.length - 1];
     const distance = Math.sqrt(Math.pow(last.x - first.x, 2) + Math.pow(last.y - first.y, 2));
-    return distance < gridSize; // Close if within grid snap distance
+    // Scale threshold with zoom - at zoom=1, use gridSize; at higher zoom, use smaller threshold
+    const threshold = gridSize / zoom;
+    return distance < threshold;
   };
 
   const completeSketch = () => {
@@ -620,7 +642,7 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [drawMode, currentLine, polygonPoints, lines, circles, circleCenter]);
+  }, [drawMode, currentLine, polygonPoints, lines, circles, circleCenter, pan, onSketchComplete]);
 
   return (
     <div className="canvas-2d-container">
@@ -757,6 +779,14 @@ const ViewportManager = forwardRef(({
       } else if (threeViewerRef.current?.zoomOut) {
         threeViewerRef.current.zoomOut();
       }
+    },
+    deleteSketch: (sketchId) => {
+      setSketches(prev => prev.filter(s => s.id !== sketchId));
+    },
+    toggleSketchVisibility: (sketchId) => {
+      setSketches(prev => prev.map(s =>
+        s.id === sketchId ? { ...s, visible: !s.visible } : s
+      ));
     }
   }));
 
@@ -789,21 +819,25 @@ const ViewportManager = forwardRef(({
     const centerX = canvasWidth / 2;
     const centerY = canvasHeight / 2;
 
+    // Use uniform scale to preserve aspect ratio (same scale for X and Y)
+    // This ensures a square drawn on canvas remains square in 3D
+    const uniformScale = Math.min(centerX, centerY);
+
     let newSketch;
 
     if (sketchData.type === 'lines') {
       // Handle independent lines
       if (!sketchData.lines || sketchData.lines.length === 0) return;
 
-      // Normalize line endpoints
+      // Normalize line endpoints using uniform scale to preserve aspect ratio
       const normalizedLines = sketchData.lines.map(line => [
         {
-          x: (line[0].x - centerX) / centerX,
-          y: -(line[0].y - centerY) / centerY
+          x: (line[0].x - centerX) / uniformScale,
+          y: -(line[0].y - centerY) / uniformScale
         },
         {
-          x: (line[1].x - centerX) / centerX,
-          y: -(line[1].y - centerY) / centerY
+          x: (line[1].x - centerX) / uniformScale,
+          y: -(line[1].y - centerY) / uniformScale
         }
       ]);
 
@@ -821,10 +855,10 @@ const ViewportManager = forwardRef(({
       // Handle polygon/closed shape
       if (!sketchData.points || sketchData.points.length < 3) return;
 
-      // Convert 2D points to normalized coordinates
+      // Convert 2D points to normalized coordinates using uniform scale
       const normalizedPoints = sketchData.points.map(point => ({
-        x: (point.x - centerX) / centerX,
-        y: -(point.y - centerY) / centerY
+        x: (point.x - centerX) / uniformScale,
+        y: -(point.y - centerY) / uniformScale
       }));
 
       newSketch = {
@@ -841,13 +875,13 @@ const ViewportManager = forwardRef(({
       // Handle circles
       if (!sketchData.circles || sketchData.circles.length === 0) return;
 
-      // Normalize circle data
+      // Normalize circle data using uniform scale
       const normalizedCircles = sketchData.circles.map(circle => ({
         center: {
-          x: (circle.center.x - centerX) / centerX,
-          y: -(circle.center.y - centerY) / centerY
+          x: (circle.center.x - centerX) / uniformScale,
+          y: -(circle.center.y - centerY) / uniformScale
         },
-        radius: circle.radius / centerX // Normalize radius
+        radius: circle.radius / uniformScale // Normalize radius with same scale
       }));
 
       newSketch = {

@@ -41,10 +41,6 @@ const App = () => {
   // Project state
   const [projectName, setProjectName] = useState('Untitled Project');
 
-  // Undo/Redo history
-  const [history, setHistory] = useState([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-
   // Model loading state
   const [modelUrl, setModelUrl] = useState(null);
   const [modelTitle, setModelTitle] = useState(null);
@@ -99,6 +95,11 @@ const App = () => {
       }
       return feature;
     }));
+
+    // Also toggle in ViewportManager sketches
+    if (viewportRef.current?.toggleSketchVisibility) {
+      viewportRef.current.toggleSketchVisibility(featureId);
+    }
   };
 
   // Delete feature
@@ -114,6 +115,11 @@ const App = () => {
     // Clear selection if deleted feature was selected
     if (selectedFeature && selectedFeature.id === featureId) {
       setSelectedFeature(null);
+    }
+
+    // Also delete from ViewportManager sketches
+    if (viewportRef.current?.deleteSketch) {
+      viewportRef.current.deleteSketch(featureId);
     }
   };
 
