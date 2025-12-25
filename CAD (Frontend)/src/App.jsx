@@ -22,9 +22,10 @@ import {
   FaEraser,
 } from "react-icons/fa";
 
-import ViewportManager from "./components/ViewportManager";
-import FeatureTree from "./components/FeatureTree";
-import CADOperations from "./components/CADOperations";
+import ViewportManager from "./components/ViewportManager.jsx";
+import FeatureTree from "./components/FeatureTree.jsx";
+import CADOperations from "./components/CADOperations.jsx";
+import CADTestComponent from "./components/CADTestComponent.jsx";
 import "./App.css";
 
 const App = () => {
@@ -32,8 +33,10 @@ const App = () => {
   const [showSidebar, setShowSidebar] = useState(false);
   const [activeTool, setActiveTool] = useState('select');
   const [activeView, setActiveView] = useState('iso');
+  const [viewMode, setViewMode] = useState('2d'); // 2D sketch or 3D model
   const [features, setFeatures] = useState([]);
   const [selectedFeature, setSelectedFeature] = useState(null);
+  const [showCADTest, setShowCADTest] = useState(false); // Disabled in production
   const viewportRef = useRef();
 
   // Model loading state
@@ -48,7 +51,6 @@ const App = () => {
     const title = urlParams.get('title');
 
     if (model) {
-      console.log('[CAD] Loading model from URL:', model);
       setModelUrl(decodeURIComponent(model));
       setModelTitle(title ? decodeURIComponent(title) : 'Imported Model');
     }
@@ -56,7 +58,6 @@ const App = () => {
 
   const handleModelLoad = (info) => {
     setModelInfo(info);
-    console.log('[CAD] Model loaded:', info);
   };
 
   const toggleAIPanel = () => {
@@ -78,7 +79,6 @@ const App = () => {
   // Handle new features created from sketches
   const handleFeatureCreated = (newFeature) => {
     setFeatures(prev => [...prev, { ...newFeature, visible: true }]);
-    console.log(`Created feature:`, newFeature);
   };
 
   // Toggle feature visibility
@@ -127,8 +127,7 @@ const App = () => {
 
   // Handle CAD operations
   const handleCADOperation = (operation) => {
-    console.log('CAD Operation:', operation);
-    // This would be implemented with actual geometry operations
+    // TODO: Implement with actual geometry operations
   };
 
   // View control functions
@@ -156,13 +155,11 @@ const App = () => {
 
   // Zoom and fit functions
   const handleZoomIn = () => {
-    // This will be handled by the camera controls
-    console.log('Zoom In clicked');
+    // Handled by camera controls
   };
 
   const handleZoomOut = () => {
-    // This will be handled by the camera controls  
-    console.log('Zoom Out clicked');
+    // Handled by camera controls
   };
 
   const handleFitToScreen = () => {
@@ -265,29 +262,52 @@ const App = () => {
         {/* Main Canvas Area */}
         <div className="canvas-area" data-tool={activeTool}>
           <div className="canvas-header">
-            <span>3D CAD Viewport</span>
+            {/* Mode Toggle */}
+            <div className="mode-toggle-compact">
+              <button
+                className={`mode-btn-sm ${viewMode === '2d' ? 'active' : ''}`}
+                onClick={() => setViewMode('2d')}
+                title="2D Sketch (ESC)"
+              >
+                2D
+              </button>
+              <button
+                className={`mode-btn-sm ${viewMode === '3d' ? 'active' : ''}`}
+                onClick={() => setViewMode('3d')}
+                title="3D Model (I)"
+              >
+                3D
+              </button>
+            </div>
+
+            <span className="viewport-label">{viewMode === '2d' ? '2D Sketch' : '3D Model'}</span>
+
             <div className="view-controls">
               <button
                 className={activeView === 'front' ? 'active' : ''}
                 onClick={() => handleViewChange('front')}
+                disabled={viewMode === '2d'}
               >
                 Front
               </button>
               <button
                 className={activeView === 'top' ? 'active' : ''}
                 onClick={() => handleViewChange('top')}
+                disabled={viewMode === '2d'}
               >
                 Top
               </button>
               <button
                 className={activeView === 'right' ? 'active' : ''}
                 onClick={() => handleViewChange('right')}
+                disabled={viewMode === '2d'}
               >
                 Right
               </button>
               <button
                 className={activeView === 'iso' ? 'active' : ''}
                 onClick={() => handleViewChange('iso')}
+                disabled={viewMode === '2d'}
               >
                 Iso
               </button>
@@ -307,7 +327,14 @@ const App = () => {
               activeTool={activeTool}
               modelUrl={modelUrl}
               onModelLoad={handleModelLoad}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
             />
+
+            {/* OpenCascade CAD Test Panel */}
+            {showCADTest && (
+              <CADTestComponent />
+            )}
           </div>
         </div>
 
@@ -343,8 +370,18 @@ const App = () => {
               onFeatureSelect={handleFeatureSelect}
             />
             <CADOperations
-              selectedFeature={selectedFeature}
-              onOperation={handleCADOperation}
+              sketches={features.filter(f => f.type === 'polygon' || f.type === 'lines')}
+              onExtrudeComplete={(extrudedGeometry) => {
+                // Add extruded geometry to features
+                setFeatures(prev => [...prev, {
+                  id: extrudedGeometry.id,
+                  type: '3d-solid',
+                  name: `Extrusion ${prev.filter(f => f.type === '3d-solid').length + 1}`,
+                  meshData: extrudedGeometry.meshData,
+                  height: extrudedGeometry.height,
+                  visible: true
+                }]);
+              }}
             />
           </div>
         </div>
@@ -378,8 +415,7 @@ const App = () => {
               placeholder="Ask me to edit your model..."
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
-                  // Handle AI command input
-                  console.log('AI Command:', e.target.value);
+                  // TODO: Handle AI command input
                 }
               }}
             />

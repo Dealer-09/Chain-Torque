@@ -1,5 +1,7 @@
 /* General Layout */
-body, html, #root {
+body,
+html,
+#root {
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -178,6 +180,48 @@ body, html, #root {
   background: hsl(217 91% 65%);
   border-color: hsl(217 91% 65%);
   color: hsl(0 0% 100%);
+}
+
+.view-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Compact Mode Toggle in Canvas Header */
+.mode-toggle-compact {
+  display: flex;
+  gap: 2px;
+  background: hsl(240 3.7% 12%);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.mode-btn-sm {
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  color: hsl(217.9 10.6% 64.9%);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mode-btn-sm:hover {
+  color: hsl(0 0% 100%);
+  background: hsl(0 0% 100% / 0.1);
+}
+
+.mode-btn-sm.active {
+  background: hsl(217 91% 65%);
+  color: hsl(0 0% 100%);
+}
+
+.viewport-label {
+  font-weight: 600;
+  color: hsl(210 20% 98%);
+  font-size: 12px;
 }
 
 /* ===== 3D Viewer Integration ===== */
@@ -444,13 +488,13 @@ body, html, #root {
     top: 50px;
     height: 450px;
   }
-  
+
   .topbar-left {
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
   }
-  
+
   .sidebar {
     width: 60px;
   }
@@ -701,54 +745,44 @@ body, html, #root {
   color: hsl(0 0% 100%);
 }
 
-.view-mode-indicator {
-  display: flex;
-  gap: 8px;
-}
-
-.mode-badge {
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  background: hsl(0 0% 100% / 0.1);
-  transition: all 0.3s ease;
-}
-
-.mode-badge.active {
-  background: hsl(224 71.4% 4.1%);
-  color: hsl(0 0% 100%);
-}
-
-.viewport-controls {
+/* Unified 2D/3D Mode Toggle */
+.view-mode-toggle {
   display: flex;
   gap: 4px;
+  background: hsl(0 0% 0% / 0.2);
+  border-radius: 8px;
+  padding: 4px;
 }
 
-.view-toggle {
-  padding: 6px 12px;
-  border: 1px solid hsl(0 0% 100% / 0.3);
+.mode-btn {
+  padding: 8px 16px;
+  border: none;
   background: transparent;
-  color: hsl(0 0% 100%);
-  border-radius: 4px;
+  color: hsl(0 0% 100% / 0.7);
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.view-toggle:hover {
-  background: hsl(0 0% 100% / 0.2);
+.mode-btn:hover {
+  background: hsl(0 0% 100% / 0.15);
+  color: hsl(0 0% 100%);
 }
 
-.view-toggle.active {
+.mode-btn.active {
   background: hsl(224 71.4% 4.1%);
   color: hsl(0 0% 100%);
+  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.3);
 }
 
 .viewport-info {
   font-size: 11px;
-  color: hsl(0 0% 100% / 0.8);
+  color: hsl(0 0% 100% / 0.7);
 }
 
 .shortcut-hint {
@@ -966,7 +1000,7 @@ body, html, #root {
     width: 100%;
     right: 0;
   }
-  
+
   .sidebar-toggle-btn {
     right: 10px;
     width: 50px;

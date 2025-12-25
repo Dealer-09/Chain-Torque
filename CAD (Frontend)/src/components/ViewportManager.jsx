@@ -1,6 +1,6 @@
 // src/components/ViewportManager.js
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
-import ThreeViewer from './ThreeViewer';
+import ThreeViewer from './ThreeViewer.jsx';
 
 // Integrated 2D Canvas Component
 const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, activeTool, onToolAction }) => {
@@ -682,9 +682,15 @@ const ViewportManager = forwardRef(({
   onFeatureSelect,
   activeTool,
   modelUrl,
-  onModelLoad
+  onModelLoad,
+  viewMode: viewModeProp,
+  onViewModeChange
 }, ref) => {
-  const [viewMode, setViewMode] = useState(modelUrl ? '3d' : '2d'); // Start in 3D if model provided
+  // Use prop viewMode if provided, otherwise fallback to local state
+  const [localViewMode, setLocalViewMode] = useState(modelUrl ? '3d' : '2d');
+  const viewMode = viewModeProp ?? localViewMode;
+  const setViewMode = onViewModeChange ?? setLocalViewMode;
+
   const [sketches, setSketches] = useState([]);
   const [activeSketch, setActiveSketch] = useState(null);
   const threeViewerRef = useRef();
@@ -721,23 +727,19 @@ const ViewportManager = forwardRef(({
   // Listen for ISO key press to switch to 3D
   useEffect(() => {
     const handleKeyPress = (e) => {
-      // Check for 'i' key (for ISO view)
-      if (e.key.toLowerCase() === 'i' && !e.ctrlKey && !e.altKey) {
-        toggleViewMode();
+      // Check for 'i' key (for ISO view) - switch to 3D
+      if (e.key.toLowerCase() === 'i' && !e.ctrlKey && !e.altKey && !e.target.matches('input, textarea')) {
+        setViewMode('3d');
       }
       // Escape to go back to 2D
-      if (e.key === 'Escape' && viewMode === '3d') {
+      if (e.key === 'Escape') {
         setViewMode('2d');
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [viewMode]);
-
-  const toggleViewMode = () => {
-    setViewMode(prev => prev === '2d' ? '3d' : '2d');
-  };
+  }, [setViewMode]);
 
   const handleSketchComplete = (sketchData) => {
     // Get canvas dimensions for proper normalization
@@ -832,44 +834,10 @@ const ViewportManager = forwardRef(({
 
   const handlePointAdd = (point) => {
     // Real-time feedback while sketching
-    console.log('Point added:', point);
   };
 
   return (
     <div className="viewport-manager">
-      <div className="viewport-header">
-        <div className="view-mode-indicator">
-          <span className={`mode-badge ${viewMode === '2d' ? 'active' : ''}`}>
-            2D Sketch
-          </span>
-          <span className={`mode-badge ${viewMode === '3d' ? 'active' : ''}`}>
-            3D Model
-          </span>
-        </div>
-
-        <div className="viewport-controls">
-          <button
-            className={`view-toggle ${viewMode === '2d' ? 'active' : ''}`}
-            onClick={() => setViewMode('2d')}
-            title="Switch to 2D Sketch Mode"
-          >
-            2D
-          </button>
-          <button
-            className={`view-toggle ${viewMode === '3d' ? 'active' : ''}`}
-            onClick={() => setViewMode('3d')}
-            title="Switch to 3D Model View (ISO)"
-          >
-            3D
-          </button>
-        </div>
-
-        <div className="viewport-info">
-          <span className="shortcut-hint">
-            Press 'I' for Isometric view • ESC for 2D
-          </span>
-        </div>
-      </div>
 
       <div className="viewport-content">
         {viewMode === '2d' ? (

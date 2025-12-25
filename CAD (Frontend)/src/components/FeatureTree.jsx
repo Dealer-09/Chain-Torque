@@ -29,8 +29,8 @@ const FeatureTree = ({ features, onFeatureToggle, onFeatureDelete, onFeatureSele
           </div>
         ) : (
           features.map((feature, index) => (
-            <div 
-              key={feature.id} 
+            <div
+              key={feature.id}
               className={`feature-item ${feature.visible ? 'visible' : 'hidden'}`}
               onClick={() => onFeatureSelect && onFeatureSelect(feature)}
             >
@@ -39,10 +39,13 @@ const FeatureTree = ({ features, onFeatureToggle, onFeatureDelete, onFeatureSele
               </div>
               <div className="feature-info">
                 <div className="feature-name">
-                  {feature.operation} {index + 1}
+                  {feature.name || `${feature.type} ${index + 1}`}
                 </div>
                 <div className="feature-details">
-                  {feature.type} - {feature.profile?.length || 0} points
+                  {feature.type === 'polygon' && `${feature.points?.length || 0} points`}
+                  {feature.type === 'lines' && `${feature.lines?.length || 0} lines${feature.closed ? ' (closed)' : ''}`}
+                  {feature.type === '3d-solid' && `Extruded${feature.height ? ` H:${feature.height}` : ''}`}
+                  {!['polygon', 'lines', '3d-solid'].includes(feature.type) && `${feature.type}`}
                 </div>
               </div>
               <div className="feature-controls">
