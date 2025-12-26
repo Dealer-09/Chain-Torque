@@ -21,6 +21,7 @@ ChainTorque/
 ├── Landing Page (Frontend)/     # Vite + React marketing site (Port 5000)
 ├── Marketplace (Frontend)/      # Vite + React + TypeScript NFT marketplace (Port 8080)
 ├── CAD (Frontend)/              # Vite + React CAD editor with OpenCascade.js (Port 3001)
+├── ChainTorque_Native/          # Android app - Kotlin + Jetpack Compose
 └── backend/                     # Express API + Hardhat Smart Contracts (Port 5001)
 ```
 
@@ -31,6 +32,7 @@ ChainTorque/
 | **Runtime** | Bun (3x faster than Node.js) |
 | **Frontend** | React 18, Vite, Three.js, @react-three/fiber, Tailwind CSS |
 | **CAD Engine** | OpenCascade.js (WASM), Three.js, Custom 2D Canvas |
+| **Android** | Kotlin, Jetpack Compose, Hilt DI, Reown AppKit (WalletConnect) |
 | **Backend** | Express, MongoDB, IPFS (Lighthouse SDK) |
 | **Blockchain** | Solidity (ERC-721), Hardhat, Ethereum Sepolia, ethers.js |
 | **Auth** | Clerk (Web3 wallet + social login) |
@@ -122,6 +124,11 @@ bun run dev:cad          # CAD editor (Port 3001)
   - [x] Feature Tree with visibility/delete
   - [x] Production build optimized
 - [x] Render.com deployment (all 4 services)
+- [x] **Native Android App** (ChainTorque_Native)
+  - [x] Jetpack Compose UI with Material 3
+  - [x] WalletConnect via Reown AppKit
+  - [x] NFT marketplace browsing & purchasing
+  - [x] User profiles and transaction history
 
 ### 🔄 In Progress
 - [ ] AI Assistant "Torquy" for CAD commands
@@ -133,7 +140,6 @@ bun run dev:cad          # CAD editor (Port 3001)
 - [ ] User profile pages
 - [ ] Multi-chain support (Polygon)
 - [ ] AR/VR model preview
-- [ ] Marketplace Mobile App
 
 ## 🏗️ **Architecture**
 
