@@ -127,10 +127,10 @@ class CADGeometryService {
             return { valid: false, error: 'Profile must have at least 3 points' };
         }
 
-        // Check for duplicate consecutive points
-        for (let i = 0; i < points.length; i++) {
+        // Check for duplicate consecutive points (but NOT first vs last - that's how polygons close)
+        for (let i = 0; i < points.length - 1; i++) {
             const p1 = points[i];
-            const p2 = points[(i + 1) % points.length];
+            const p2 = points[i + 1];
             const dist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
             if (dist < 0.001) {
                 return { valid: false, error: 'Polygon has duplicate consecutive points' };

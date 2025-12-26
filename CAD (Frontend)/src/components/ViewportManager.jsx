@@ -385,6 +385,28 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
         alert('Maximum 500 points reached. Press Enter to save or Backspace to undo.');
         return;
       }
+
+      // Check if clicking near first point to close polygon (need at least 3 points)
+      if (polygonPoints.length >= 3) {
+        const first = polygonPoints[0];
+        const dist = Math.sqrt((snappedPoint.x - first.x) ** 2 + (snappedPoint.y - first.y) ** 2);
+        // Use larger threshold (2x grid size) to be more forgiving
+        const closeThreshold = (gridSize * 2) / zoom;
+        if (dist < closeThreshold) {
+          // Auto-complete the polygon without adding duplicate point
+          completeSketch();
+          return;
+        }
+      }
+
+      // Check for duplicate of last point (same grid position clicked twice)
+      if (polygonPoints.length > 0) {
+        const lastPoint = polygonPoints[polygonPoints.length - 1];
+        if (Math.abs(snappedPoint.x - lastPoint.x) < 1 && Math.abs(snappedPoint.y - lastPoint.y) < 1) {
+          return; // Skip duplicate click
+        }
+      }
+
       setPolygonPoints(prev => [...prev, snappedPoint]);
       if (onPointAdd) onPointAdd(snappedPoint);
     } else if (drawMode === 'circle') {
@@ -522,9 +544,20 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       setLines([]);
       setCurrentLine([]);
     } else if (drawMode === 'polygon' && polygonPoints.length > 2) {
+      // Clean up: remove last point if it's a duplicate of first (user clicked to close)
+      let cleanedPoints = [...polygonPoints];
+      if (cleanedPoints.length > 3) {
+        const first = cleanedPoints[0];
+        const last = cleanedPoints[cleanedPoints.length - 1];
+        const dist = Math.sqrt((last.x - first.x) ** 2 + (last.y - first.y) ** 2);
+        if (dist < 1) {
+          cleanedPoints = cleanedPoints.slice(0, -1);
+        }
+      }
+
       if (onSketchComplete) {
         onSketchComplete({
-          points: polygonPoints,
+          points: cleanedPoints,
           type: 'polygon',
           closed: true
         });
