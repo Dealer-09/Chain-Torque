@@ -108,6 +108,28 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
       setArcStart(null);
       setArcEnd(null);
       setArcControlPoint(null);
+    } else if (activeTool === 'cut') {
+      // Switch to cut mode
+      setDrawMode('cut');
+      setLines([]);
+      setPolygonPoints([]);
+      setCurrentLine([]);
+      setCircleCenter(null);
+      setCircleRadius(0);
+      setArcStart(null);
+      setArcEnd(null);
+      setArcControlPoint(null);
+    } else if (activeTool === 'point') {
+      // Switch to point mode
+      setDrawMode('point');
+      setLines([]);
+      setPolygonPoints([]);
+      setCurrentLine([]);
+      setCircleCenter(null);
+      setCircleRadius(0);
+      setArcStart(null);
+      setArcEnd(null);
+      setArcControlPoint(null);
     } else if (activeTool === 'delete') {
       // Clear all
       setCurrentLine([]);
@@ -730,14 +752,18 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
 
           // Check arc edges
           if (sketch.arcEdges && sketch.arcEdges.length > 0) {
+            console.log('Cut tool checking arc edges:', sketch.arcEdges);
             sketch.arcEdges.forEach((arcEdge, arcIdx) => {
               const dist = pointToArcDistance(clickPoint, arcEdge);
-              if (dist < minDist && dist < gridSize) {
+              console.log(`Arc ${arcIdx} dist: ${dist}, threshold: ${gridSize * 2}`);
+              // Use larger threshold for arcs since curves can be harder to click
+              if (dist < minDist && dist < gridSize * 2) {
                 minDist = dist;
                 nearestSketchIdx = sketchIdx;
                 // Use special marker for arc edge: negative index - 1
                 nearestEdgeIdx = -(arcIdx + 1); // -1 for arcIdx 0, -2 for arcIdx 1, etc.
                 nearestEdge = arcEdge;
+                console.log('Arc edge matched!');
               }
             });
           }
@@ -980,7 +1006,8 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
       } else {
         setHoveredEdge(null);
       }
-      setCursorPos(snapped);
+      // In cut/point mode, just track the raw cursor position
+      setCursorPos({ x, y });
     } else {
       setCursorPos(null);
       setHoveredEdge(null);
@@ -1266,9 +1293,35 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
               if (!updatedSketch.arcEdges) updatedSketch.arcEdges = [];
 
               // Add arc edge (snap to exact vertices)
+              // Also store normalized control point for consistent extrusion
+              const canvas = document.querySelector('.sketch-canvas');
+              const canvasWidth = canvas ? canvas.width : 800;
+              const canvasHeight = canvas ? canvas.height : 600;
+              const centerX = canvasWidth / 2;
+              const centerY = canvasHeight / 2;
+              const uniformScale = Math.min(centerX, centerY);
+
+              // Convert control point to normalized coordinates
+              const controlNorm = {
+                x: (arc.control.x - centerX) / uniformScale,
+                y: -(arc.control.y - centerY) / uniformScale
+              };
+
+              // Get normalized start/end from sketch.points (not original2DPoints)
+              const startNorm = sketch.points[cutEdgeIdx];
+              const endNorm = sketch.points[(cutEdgeIdx + 1) % sketch.points.length];
+
               const snappedArc = matchesForward
-                ? { start: p1, end: p2, control: arc.control, edgeIndex: cutEdgeIdx }
-                : { start: p2, end: p1, control: arc.control, edgeIndex: cutEdgeIdx };
+                ? {
+                  start: p1, end: p2, control: arc.control,
+                  startNorm, endNorm, controlNorm,
+                  edgeIndex: cutEdgeIdx
+                }
+                : {
+                  start: p2, end: p1, control: arc.control,
+                  startNorm: endNorm, endNorm: startNorm, controlNorm,
+                  edgeIndex: cutEdgeIdx
+                };
 
               updatedSketch.arcEdges.push(snappedArc);
 
@@ -1482,7 +1535,15 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
               ? `Line Mode: ${lines.length} lines${currentLine.length > 0 ? ' (click to place 2nd point)' : ' (click to start)'}`
               : drawMode === 'polygon'
                 ? `Polygon Mode: ${polygonPoints.length} points${polygonPoints.length > 0 ? ' (double-click or Enter to complete)' : ' (click to start)'}`
-                : `Circle Mode: ${circles.length} circles${circleCenter ? ' (click to set radius)' : ' (click to set center)'}`
+                : drawMode === 'circle'
+                  ? `Circle Mode: ${circles.length} circles${circleCenter ? ' (click to set radius)' : ' (click to set center)'}`
+                  : drawMode === 'arc'
+                    ? `Arc Mode: ${arcs.length} arcs${arcStart ? (arcEnd ? ' (click to set curve)' : ' (click end point)') : ' (click start point)'}`
+                    : drawMode === 'cut'
+                      ? `Cut Mode: Click on edges to remove them`
+                      : drawMode === 'point'
+                        ? `Point Mode: Click on edges to add points`
+                        : `Select Mode`
             }
           </span>
         </div>

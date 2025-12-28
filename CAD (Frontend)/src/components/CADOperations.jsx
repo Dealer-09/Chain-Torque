@@ -120,45 +120,68 @@ const CADOperations = ({ sketches = [], onExtrudeComplete }) => {
 
         // Walk through all edges
         for (let i = 0; i < points.length; i++) {
-          const p1 = points[i];
+          const p1Norm = points[i];
+          const p2Norm = points[(i + 1) % points.length];
 
           if (arcEdgeMap.has(i)) {
             // This edge is an arc - sample points along the quadratic bezier
             const arcEdge = arcEdgeMap.get(i);
-            const original_p1 = original2DPoints[i];
-            const original_p2 = original2DPoints[(i + 1) % original2DPoints.length];
 
-            // Convert control point to normalized coordinates for sampling
-            const canvas = document.querySelector('.sketch-canvas');
-            const canvasWidth = canvas ? canvas.width : 800;
-            const canvasHeight = canvas ? canvas.height : 600;
-            const centerX = canvasWidth / 2;
-            const centerY = canvasHeight / 2;
-            const uniformScale = Math.min(centerX, centerY);
+            console.log(`\n=== ARC EDGE ${i} ===`);
+            console.log('arcEdge:', arcEdge);
+            console.log('p1Norm:', p1Norm, 'p2Norm:', p2Norm);
 
-            const ctrl = {
-              x: (arcEdge.control.x - centerX) / uniformScale,
-              y: -(arcEdge.control.y - centerY) / uniformScale
-            };
+            // Get the control point in normalized coordinates
+            let bezierControl;
+
+            if (arcEdge.controlNorm) {
+              // Use pre-computed normalized control point
+              bezierControl = arcEdge.controlNorm;
+              console.log('Using normalized controlNorm:', bezierControl);
+            } else {
+              // Legacy: convert screen coords to normalized
+              const canvas = document.querySelector('.sketch-canvas');
+              const canvasWidth = canvas ? canvas.width : 800;
+              const canvasHeight = canvas ? canvas.height : 600;
+              const centerX = canvasWidth / 2;
+              const centerY = canvasHeight / 2;
+              const uniformScale = Math.min(centerX, centerY);
+
+              bezierControl = {
+                x: (arcEdge.control.x - centerX) / uniformScale,
+                y: -(arcEdge.control.y - centerY) / uniformScale
+              };
+              console.log('Converted control from screen coords:', bezierControl);
+            }
+
+            // ALWAYS use polygon vertices as bezier start/end for correct direction
+            // p1Norm = points[i], p2Norm = points[(i+1)%n] - this is the edge direction
+            const bezierStart = p1Norm;
+            const bezierEnd = p2Norm;
+            console.log('Using polygon vertices for bezier:', { bezierStart, bezierEnd, bezierControl });
 
             // Add start point
-            sketchPoints.push(p1);
+            sketchPoints.push(p1Norm);
+            console.log('Added start point:', p1Norm);
 
-            // Sample arc with 8 intermediate points
+            // Sample arc using normalized coordinates
             const SAMPLES = 8;
             for (let t = 1; t <= SAMPLES; t++) {
               const tNorm = t / (SAMPLES + 1);
-              // Quadratic bezier: B(t) = (1-t)^2 * P0 + 2(1-t)t * P1 + t^2 * P2
               const oneMinusT = 1 - tNorm;
-              const x = oneMinusT * oneMinusT * p1.x + 2 * oneMinusT * tNorm * ctrl.x + tNorm * tNorm * points[(i + 1) % points.length].x;
-              const y = oneMinusT * oneMinusT * p1.y + 2 * oneMinusT * tNorm * ctrl.y + tNorm * tNorm * points[(i + 1) % points.length].y;
+
+              // Quadratic bezier: start -> control -> end
+              const x = oneMinusT * oneMinusT * bezierStart.x + 2 * oneMinusT * tNorm * bezierControl.x + tNorm * tNorm * bezierEnd.x;
+              const y = oneMinusT * oneMinusT * bezierStart.y + 2 * oneMinusT * tNorm * bezierControl.y + tNorm * tNorm * bezierEnd.y;
+
               sketchPoints.push({ x, y });
             }
           } else {
             // Regular line edge - just add the point
-            sketchPoints.push(p1);
+            sketchPoints.push(p1Norm);
           }
         }
+        console.log('\n=== FINAL sketchPoints ===', sketchPoints);
       } else {
         // No arc edges, use points directly
         sketchPoints = sketch.points;
