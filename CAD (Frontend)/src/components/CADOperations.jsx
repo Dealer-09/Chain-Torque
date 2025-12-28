@@ -92,16 +92,79 @@ const CADOperations = ({ sketches = [], onExtrudeComplete }) => {
 
     // Get points from sketch - walk line chain to preserve order
     let sketchPoints;
-    const cutEdges = sketch.cutEdges || [];
 
     if (sketch.type === 'polygon' && sketch.points) {
-      // For polygons, filter out cut edges from the point list
+      const cutEdges = sketch.cutEdges || [];
+      const arcEdges = sketch.arcEdges || [];
+
+      // Check if shape is closed: no cut edges, OR all cut edges replaced with arcs
       if (cutEdges.length > 0) {
-        setError('Cannot extrude: sketch has cut edges (open geometry). Close the shape first.');
+        setError('Cannot extrude: sketch has cut edges (open geometry). Close the shape with arcs first.');
         return;
       }
-      sketchPoints = sketch.points;
+
+      // Build the outline by walking through edges, using arcs where needed
+      const points = sketch.points;
+      const original2DPoints = sketch.original2DPoints || [];
+      sketchPoints = [];
+
+      // If we have arc edges, we need to sample the arcs to create a smooth profile
+      if (arcEdges.length > 0) {
+        // Create a map of edge index to arc edge
+        const arcEdgeMap = new Map();
+        arcEdges.forEach(ae => {
+          if (ae.edgeIndex !== undefined) {
+            arcEdgeMap.set(ae.edgeIndex, ae);
+          }
+        });
+
+        // Walk through all edges
+        for (let i = 0; i < points.length; i++) {
+          const p1 = points[i];
+
+          if (arcEdgeMap.has(i)) {
+            // This edge is an arc - sample points along the quadratic bezier
+            const arcEdge = arcEdgeMap.get(i);
+            const original_p1 = original2DPoints[i];
+            const original_p2 = original2DPoints[(i + 1) % original2DPoints.length];
+
+            // Convert control point to normalized coordinates for sampling
+            const canvas = document.querySelector('.sketch-canvas');
+            const canvasWidth = canvas ? canvas.width : 800;
+            const canvasHeight = canvas ? canvas.height : 600;
+            const centerX = canvasWidth / 2;
+            const centerY = canvasHeight / 2;
+            const uniformScale = Math.min(centerX, centerY);
+
+            const ctrl = {
+              x: (arcEdge.control.x - centerX) / uniformScale,
+              y: -(arcEdge.control.y - centerY) / uniformScale
+            };
+
+            // Add start point
+            sketchPoints.push(p1);
+
+            // Sample arc with 8 intermediate points
+            const SAMPLES = 8;
+            for (let t = 1; t <= SAMPLES; t++) {
+              const tNorm = t / (SAMPLES + 1);
+              // Quadratic bezier: B(t) = (1-t)^2 * P0 + 2(1-t)t * P1 + t^2 * P2
+              const oneMinusT = 1 - tNorm;
+              const x = oneMinusT * oneMinusT * p1.x + 2 * oneMinusT * tNorm * ctrl.x + tNorm * tNorm * points[(i + 1) % points.length].x;
+              const y = oneMinusT * oneMinusT * p1.y + 2 * oneMinusT * tNorm * ctrl.y + tNorm * tNorm * points[(i + 1) % points.length].y;
+              sketchPoints.push({ x, y });
+            }
+          } else {
+            // Regular line edge - just add the point
+            sketchPoints.push(p1);
+          }
+        }
+      } else {
+        // No arc edges, use points directly
+        sketchPoints = sketch.points;
+      }
     } else if (sketch.type === 'lines' && sketch.lines) {
+      const cutEdges = sketch.cutEdges || [];
       sketchPoints = extractOrderedPointsFromLines(sketch.lines, cutEdges);
       // Check if we have a closed shape after removing cut edges
       if (cutEdges.length > 0 && sketchPoints.length < 3) {

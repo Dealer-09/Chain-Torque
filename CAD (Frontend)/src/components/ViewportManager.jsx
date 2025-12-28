@@ -338,6 +338,17 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
           const p2 = points[(i + 1) % points.length];
           drawLine(ctx, p1, p2, 'hsl(142 76% 36%)', 2);
         }
+        // Draw arc edges that replaced cut edges
+        if (sketch.arcEdges && sketch.arcEdges.length > 0) {
+          sketch.arcEdges.forEach(arcEdge => {
+            ctx.strokeStyle = 'hsl(142 76% 36%)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(arcEdge.start.x, arcEdge.start.y);
+            ctx.quadraticCurveTo(arcEdge.control.x, arcEdge.control.y, arcEdge.end.x, arcEdge.end.y);
+            ctx.stroke();
+          });
+        }
         // Always draw all vertices
         points.forEach(p => drawPoint(ctx, p, 'hsl(142 76% 36%)', 4));
       } else if (sketch.type === 'circles' && sketch.originalCircles) {
@@ -542,7 +553,22 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
             // Skip cut edges
             if (sketch.cutEdges && sketch.cutEdges.includes(edgeIdx)) continue;
 
+            // Skip sketches being modified with cuts or arcs - user wants to add geometry, not edit
+            if ((sketch.cutEdges && sketch.cutEdges.length > 0) ||
+              (sketch.arcEdges && sketch.arcEdges.length > 0)) {
+              continue;
+            }
+
             const edge = edges[edgeIdx];
+
+            // Check if click is near a vertex (user wants to snap/connect, not edit)
+            const distToStart = Math.sqrt((clickPoint.x - edge[0].x) ** 2 + (clickPoint.y - edge[0].y) ** 2);
+            const distToEnd = Math.sqrt((clickPoint.x - edge[1].x) ** 2 + (clickPoint.y - edge[1].y) ** 2);
+            const VERTEX_THRESHOLD = 20;
+            if (distToStart < VERTEX_THRESHOLD || distToEnd < VERTEX_THRESHOLD) {
+              continue; // Near vertex - don't trigger edit, let user draw from/to this point
+            }
+
             const dist = pointToLineDistance(clickPoint, edge[0], edge[1]);
 
             if (dist < CLICK_THRESHOLD) {
@@ -686,7 +712,11 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
           });
         } else if (sketch.type === 'polygon' && sketch.original2DPoints) {
           const points = sketch.original2DPoints;
+          const cutEdges = sketch.cutEdges || [];
+
+          // Check line edges
           for (let i = 0; i < points.length; i++) {
+            if (cutEdges.includes(i)) continue; // Skip already cut edges
             const p1 = points[i];
             const p2 = points[(i + 1) % points.length];
             const dist = pointToLineDistance(clickPoint, p1, p2);
@@ -697,15 +727,41 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
               nearestEdge = [p1, p2];
             }
           }
+
+          // Check arc edges
+          if (sketch.arcEdges && sketch.arcEdges.length > 0) {
+            sketch.arcEdges.forEach((arcEdge, arcIdx) => {
+              const dist = pointToArcDistance(clickPoint, arcEdge);
+              if (dist < minDist && dist < gridSize) {
+                minDist = dist;
+                nearestSketchIdx = sketchIdx;
+                // Use special marker for arc edge: negative index - 1
+                nearestEdgeIdx = -(arcIdx + 1); // -1 for arcIdx 0, -2 for arcIdx 1, etc.
+                nearestEdge = arcEdge;
+              }
+            });
+          }
         }
       });
 
       if (nearestEdge && nearestSketchIdx >= 0) {
-        // Remove this edge - mark as cut
-        // For now, we'll update the sketch to have a 'cutEdges' array
         const updatedSketch = { ...sketches[nearestSketchIdx] };
-        if (!updatedSketch.cutEdges) updatedSketch.cutEdges = [];
-        updatedSketch.cutEdges.push(nearestEdgeIdx);
+
+        if (nearestEdgeIdx < 0) {
+          // Cutting an arc edge
+          const arcIdx = -(nearestEdgeIdx + 1);
+          const arcEdge = updatedSketch.arcEdges[arcIdx];
+
+          // Remove the arc edge and add back to cutEdges
+          const originalEdgeIdx = arcEdge.edgeIndex;
+          updatedSketch.arcEdges = updatedSketch.arcEdges.filter((_, idx) => idx !== arcIdx);
+          if (!updatedSketch.cutEdges) updatedSketch.cutEdges = [];
+          updatedSketch.cutEdges.push(originalEdgeIdx);
+        } else {
+          // Cutting a line edge (original behavior)
+          if (!updatedSketch.cutEdges) updatedSketch.cutEdges = [];
+          updatedSketch.cutEdges.push(nearestEdgeIdx);
+        }
 
         // Update the sketch via callback
         if (onSketchUpdate) {
@@ -843,6 +899,26 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
       dist: Math.sqrt((p.x - xx) ** 2 + (p.y - yy) ** 2),
       point: { x: xx, y: yy }
     };
+  };
+
+  // Helper: distance from point to quadratic bezier arc (approximate by sampling)
+  const pointToArcDistance = (p, arc) => {
+    const { start, end, control } = arc;
+    let minDist = Infinity;
+
+    // Sample 20 points along the arc
+    const SAMPLES = 20;
+    for (let i = 0; i <= SAMPLES; i++) {
+      const t = i / SAMPLES;
+      const oneMinusT = 1 - t;
+      // Quadratic bezier: B(t) = (1-t)^2 * P0 + 2(1-t)t * P1 + t^2 * P2
+      const x = oneMinusT * oneMinusT * start.x + 2 * oneMinusT * t * control.x + t * t * end.x;
+      const y = oneMinusT * oneMinusT * start.y + 2 * oneMinusT * t * control.y + t * t * end.y;
+      const dist = Math.sqrt((p.x - x) ** 2 + (p.y - y) ** 2);
+      if (dist < minDist) minDist = dist;
+    }
+
+    return minDist;
   };
 
   const handleMouseMove = (e) => {
@@ -1042,13 +1118,64 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
         }
         setEditingSketchIdx(null);
         setEditingSketchBackup(null);
-      } else if (onSketchComplete) {
-        // Create new sketch
-        onSketchComplete({
-          lines: lines,
-          type: 'lines',
-          closed: isClosed
+      } else {
+        // Try to integrate lines with existing polygons with cut edges
+        let integratedCount = 0;
+        const THRESHOLD = 15; // pixels
+
+        lines.forEach(line => {
+          let integrated = false;
+
+          // Look for a polygon with cut edges where this line fits
+          for (let sketchIdx = 0; sketchIdx < sketches.length && !integrated; sketchIdx++) {
+            const sketch = sketches[sketchIdx];
+            if (sketch.type !== 'polygon' || !sketch.original2DPoints) continue;
+            if (!sketch.cutEdges || sketch.cutEdges.length === 0) continue;
+
+            const points = sketch.original2DPoints;
+
+            // Check each cut edge to see if this line connects its vertices
+            for (const cutEdgeIdx of sketch.cutEdges) {
+              const p1 = points[cutEdgeIdx];
+              const p2 = points[(cutEdgeIdx + 1) % points.length];
+
+              // Check if line connects p1 to p2 (in either direction)
+              const startToP1 = Math.sqrt((line[0].x - p1.x) ** 2 + (line[0].y - p1.y) ** 2);
+              const endToP2 = Math.sqrt((line[1].x - p2.x) ** 2 + (line[1].y - p2.y) ** 2);
+              const startToP2 = Math.sqrt((line[0].x - p2.x) ** 2 + (line[0].y - p2.y) ** 2);
+              const endToP1 = Math.sqrt((line[1].x - p1.x) ** 2 + (line[1].y - p1.y) ** 2);
+
+              const matchesForward = startToP1 < THRESHOLD && endToP2 < THRESHOLD;
+              const matchesReverse = startToP2 < THRESHOLD && endToP1 < THRESHOLD;
+
+              if (matchesForward || matchesReverse) {
+                // Line connects this cut edge's vertices - integrate it!
+                const updatedSketch = { ...sketch };
+
+                // Remove this edge from cutEdges (it's now restored as a line edge)
+                updatedSketch.cutEdges = updatedSketch.cutEdges.filter(idx => idx !== cutEdgeIdx);
+
+                // Update the sketch
+                if (onSketchUpdate) {
+                  onSketchUpdate(sketchIdx, updatedSketch);
+                }
+
+                integrated = true;
+                integratedCount++;
+                break;
+              }
+            }
+          }
         });
+
+        // If not all lines were integrated, save remaining as new sketch
+        if (integratedCount < lines.length && onSketchComplete) {
+          onSketchComplete({
+            lines: lines,
+            type: 'lines',
+            closed: isClosed
+          });
+        }
       }
       // Clear to start new drawing
       setLines([]);
@@ -1104,9 +1231,65 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
       setEditingSketchIdx(null);
       setEditingSketchBackup(null);
     } else if (drawMode === 'arc' && arcs.length > 0) {
-      // Save each arc as a separate sketch (or as a group)
+      // For each arc, check if it should integrate with an existing polygon with cut edges
       arcs.forEach(arc => {
-        if (onSketchComplete) {
+        let integrated = false;
+
+        // Look for a polygon with cut edges where this arc fits
+        for (let sketchIdx = 0; sketchIdx < sketches.length; sketchIdx++) {
+          const sketch = sketches[sketchIdx];
+          if (sketch.type !== 'polygon' || !sketch.original2DPoints) continue;
+          if (!sketch.cutEdges || sketch.cutEdges.length === 0) continue;
+
+          const points = sketch.original2DPoints;
+          const THRESHOLD = 15; // pixels
+
+          // Check each cut edge to see if this arc connects its vertices
+          for (const cutEdgeIdx of sketch.cutEdges) {
+            const p1 = points[cutEdgeIdx];
+            const p2 = points[(cutEdgeIdx + 1) % points.length];
+
+            // Check if arc connects p1 to p2 (in either direction)
+            const startToP1 = Math.sqrt((arc.start.x - p1.x) ** 2 + (arc.start.y - p1.y) ** 2);
+            const endToP2 = Math.sqrt((arc.end.x - p2.x) ** 2 + (arc.end.y - p2.y) ** 2);
+            const startToP2 = Math.sqrt((arc.start.x - p2.x) ** 2 + (arc.start.y - p2.y) ** 2);
+            const endToP1 = Math.sqrt((arc.end.x - p1.x) ** 2 + (arc.end.y - p1.y) ** 2);
+
+            const matchesForward = startToP1 < THRESHOLD && endToP2 < THRESHOLD;
+            const matchesReverse = startToP2 < THRESHOLD && endToP1 < THRESHOLD;
+
+            if (matchesForward || matchesReverse) {
+              // Arc connects this cut edge's vertices - integrate it!
+              const updatedSketch = { ...sketch };
+
+              // Initialize arcEdges array if needed
+              if (!updatedSketch.arcEdges) updatedSketch.arcEdges = [];
+
+              // Add arc edge (snap to exact vertices)
+              const snappedArc = matchesForward
+                ? { start: p1, end: p2, control: arc.control, edgeIndex: cutEdgeIdx }
+                : { start: p2, end: p1, control: arc.control, edgeIndex: cutEdgeIdx };
+
+              updatedSketch.arcEdges.push(snappedArc);
+
+              // Remove this edge from cutEdges (it's now an arc edge)
+              updatedSketch.cutEdges = updatedSketch.cutEdges.filter(idx => idx !== cutEdgeIdx);
+
+              // Update the sketch
+              if (onSketchUpdate) {
+                onSketchUpdate(sketchIdx, updatedSketch);
+              }
+
+              integrated = true;
+              break;
+            }
+          }
+
+          if (integrated) break;
+        }
+
+        // If not integrated, save as standalone arc
+        if (!integrated && onSketchComplete) {
           onSketchComplete({
             type: 'arc',
             arc: arc,
@@ -1115,6 +1298,7 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
           });
         }
       });
+
       // Clear to start new drawing
       setArcs([]);
       setArcStart(null);
@@ -1277,7 +1461,7 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [drawMode, currentLine, polygonPoints, lines, circles, circleCenter, pan, onSketchComplete]);
+  }, [drawMode, currentLine, polygonPoints, lines, circles, circleCenter, pan, onSketchComplete, arcs, arcStart, arcEnd]);
 
   return (
     <div className="canvas-2d-container">
