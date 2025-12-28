@@ -3,10 +3,10 @@ import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } f
 import ThreeViewer from './ThreeViewer.jsx';
 
 // Integrated 2D Canvas Component
-const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, activeTool, onToolAction, onToolChange, zoom: zoomProp, onZoomChange }) => {
+const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, onPointAdd, activeTool, onToolAction, onToolChange, zoom: zoomProp, onZoomChange }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
-  const [drawMode, setDrawMode] = useState('line'); // 'line', 'polygon', or 'circle'
+  const [drawMode, setDrawMode] = useState('line'); // 'line', 'polygon', 'circle', 'arc', 'cut', 'point'
   const [lines, setLines] = useState([]); // Array of completed line segments
   const [currentLine, setCurrentLine] = useState([]); // Current line being drawn
   const [polygonPoints, setPolygonPoints] = useState([]); // Points for polygon mode
@@ -23,6 +23,17 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
   const [isPanning, setIsPanning] = useState(false);
   const [lastPanPos, setLastPanPos] = useState({ x: 0, y: 0 });
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [cursorPos, setCursorPos] = useState(null); // For preview lines
+  const [hoveredEdge, setHoveredEdge] = useState(null); // {sketchIdx, edgeIdx, edge} for Cut/Point tools
+  const [editingSketchIdx, setEditingSketchIdx] = useState(null); // Index of sketch being edited (null = new sketch)
+  const [editingSketchBackup, setEditingSketchBackup] = useState(null); // Backup of original sketch for cancel
+
+  // Arc tool state
+  const [arcStart, setArcStart] = useState(null); // First point of arc
+  const [arcEnd, setArcEnd] = useState(null); // Second point of arc
+  const [arcControlPoint, setArcControlPoint] = useState(null); // Control point for curvature
+  const [arcs, setArcs] = useState([]); // Completed arcs [{start, end, control}]
+
 
   // ResizeObserver to dynamically resize canvas to fill container
   useEffect(() => {
@@ -86,6 +97,17 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
           setCircles(prev => prev.slice(0, -1));
         }
       }
+    } else if (activeTool === 'arc') {
+      // Switch to arc mode
+      setDrawMode('arc');
+      setLines([]);
+      setPolygonPoints([]);
+      setCurrentLine([]);
+      setCircleCenter(null);
+      setCircleRadius(0);
+      setArcStart(null);
+      setArcEnd(null);
+      setArcControlPoint(null);
     } else if (activeTool === 'delete') {
       // Clear all
       setCurrentLine([]);
@@ -94,6 +116,10 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       setCircleCenter(null);
       setCircleRadius(0);
       setCircles([]);
+      setArcs([]);
+      setArcStart(null);
+      setArcEnd(null);
+      setArcControlPoint(null);
     }
   }, [activeTool]);
 
@@ -276,26 +302,61 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
     }
 
     // Draw existing sketches (saved drawings)
-    sketches.forEach(sketch => {
+    sketches.forEach((sketch, sketchIdx) => {
       // Skip hidden sketches
       if (sketch.visible === false) return;
 
+      // Skip the sketch being edited (it's shown in blue via active drawing state)
+      if (editingSketchIdx === sketchIdx) return;
+
+      const cutEdges = sketch.cutEdges || [];
+
       if (sketch.type === 'lines' && sketch.originalLines) {
-        // Draw saved lines using original canvas coordinates
-        sketch.originalLines.forEach(line => {
+        // Draw saved lines using original canvas coordinates, skipping cut edges
+        sketch.originalLines.forEach((line, idx) => {
+          if (cutEdges.includes(idx)) return; // Skip cut edges
           drawLine(ctx, line[0], line[1], 'hsl(142 76% 36%)', 2);
           drawPoint(ctx, line[0], 'hsl(142 76% 36%)', 4);
           drawPoint(ctx, line[1], 'hsl(142 76% 36%)', 4);
         });
-      } else if (sketch.type === 'polygon' && sketch.original2DPoints) {
-        // Draw saved polygon using original canvas coordinates
-        drawPolygon(ctx, sketch.original2DPoints, 'hsl(142 76% 36%)', false);
+        // Always draw all vertices (even for cut edges)
+        const allPoints = new Set();
+        sketch.originalLines.forEach(line => {
+          allPoints.add(JSON.stringify(line[0]));
+          allPoints.add(JSON.stringify(line[1]));
+        });
+        allPoints.forEach(pStr => {
+          const p = JSON.parse(pStr);
+          drawPoint(ctx, p, 'hsl(142 76% 36%)', 4);
+        });
+      } else if (sketch.type === 'polygon' && (sketch.originalPoints || sketch.original2DPoints)) {
+        // Draw saved polygon edges individually to support cut edges
+        const points = sketch.originalPoints || sketch.original2DPoints;
+        for (let i = 0; i < points.length; i++) {
+          if (cutEdges.includes(i)) continue; // Skip cut edges
+          const p1 = points[i];
+          const p2 = points[(i + 1) % points.length];
+          drawLine(ctx, p1, p2, 'hsl(142 76% 36%)', 2);
+        }
+        // Always draw all vertices
+        points.forEach(p => drawPoint(ctx, p, 'hsl(142 76% 36%)', 4));
       } else if (sketch.type === 'circles' && sketch.originalCircles) {
         // Draw saved circles using original canvas coordinates
         sketch.originalCircles.forEach(circle => {
           drawCircle(ctx, circle.center, circle.radius, 'hsl(142 76% 36%)', 2);
           drawPoint(ctx, circle.center, 'hsl(142 76% 36%)', 4);
         });
+      } else if (sketch.type === 'arc' && sketch.originalArc) {
+        // Draw saved arc using quadratic bezier curve
+        const arc = sketch.originalArc;
+        ctx.strokeStyle = 'hsl(142 76% 36%)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(arc.start.x, arc.start.y);
+        ctx.quadraticCurveTo(arc.control.x, arc.control.y, arc.end.x, arc.end.y);
+        ctx.stroke();
+        drawPoint(ctx, arc.start, 'hsl(142 76% 36%)', 4);
+        drawPoint(ctx, arc.end, 'hsl(142 76% 36%)', 4);
       }
     });
 
@@ -323,6 +384,31 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
     // Draw polygon being drawn
     if (drawMode === 'polygon' && polygonPoints.length > 0) {
       drawPolygon(ctx, polygonPoints, 'hsl(25 95% 63%)', true);
+
+      // Draw preview line from last point to cursor
+      if (cursorPos && polygonPoints.length > 0) {
+        const lastPoint = polygonPoints[polygonPoints.length - 1];
+        ctx.setLineDash([5, 5]);
+        drawLine(ctx, lastPoint, cursorPos, 'rgba(255, 150, 50, 0.6)', 2);
+        ctx.setLineDash([]);
+        drawPoint(ctx, cursorPos, 'rgba(255, 150, 50, 0.6)', 4);
+      }
+    }
+
+    // Draw preview line for line tool
+    if (drawMode === 'line' && cursorPos) {
+      let startPoint = null;
+      if (currentLine.length === 1) {
+        startPoint = currentLine[0];
+      } else if (lines.length > 0) {
+        startPoint = lines[lines.length - 1][1];
+      }
+      if (startPoint) {
+        ctx.setLineDash([5, 5]);
+        drawLine(ctx, startPoint, cursorPos, 'rgba(255, 150, 50, 0.6)', 2);
+        ctx.setLineDash([]);
+        drawPoint(ctx, cursorPos, 'rgba(255, 150, 50, 0.6)', 4);
+      }
     }
 
     // Draw completed circles
@@ -339,15 +425,81 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       drawPoint(ctx, circleCenter, 'hsl(25 95% 63%)', 6);
     }
 
+    // Draw hovered edge highlight for Cut/Point tools
+    if (hoveredEdge && (drawMode === 'cut' || drawMode === 'point')) {
+      const color = drawMode === 'cut' ? 'rgba(255, 50, 50, 0.8)' : 'rgba(50, 150, 255, 0.8)';
+      ctx.setLineDash([]);
+      drawLine(ctx, hoveredEdge.edge[0], hoveredEdge.edge[1], color, 4);
+      drawPoint(ctx, hoveredEdge.edge[0], color, 6);
+      drawPoint(ctx, hoveredEdge.edge[1], color, 6);
+    }
+
+    // Draw completed arcs as quadratic bezier curves
+    arcs.forEach(arc => {
+      ctx.strokeStyle = 'hsl(217 91% 65%)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(arc.start.x, arc.start.y);
+      ctx.quadraticCurveTo(arc.control.x, arc.control.y, arc.end.x, arc.end.y);
+      ctx.stroke();
+      drawPoint(ctx, arc.start, 'hsl(217 91% 65%)', 4);
+      drawPoint(ctx, arc.end, 'hsl(217 91% 65%)', 4);
+    });
+
+    // Draw arc being created (preview)
+    if (drawMode === 'arc') {
+      if (arcStart) {
+        // Draw start point
+        drawPoint(ctx, arcStart, 'hsl(25 95% 63%)', 6);
+
+        if (arcEnd) {
+          // Draw end point and preview arc with cursor as control point
+          drawPoint(ctx, arcEnd, 'hsl(25 95% 63%)', 6);
+
+          // Draw preview arc from arcStart to arcEnd with cursor as control
+          if (cursorPos) {
+            ctx.strokeStyle = 'rgba(255, 150, 50, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(arcStart.x, arcStart.y);
+            ctx.quadraticCurveTo(cursorPos.x, cursorPos.y, arcEnd.x, arcEnd.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            // Draw control point indicator
+            drawPoint(ctx, cursorPos, 'rgba(255, 150, 50, 0.6)', 4);
+          }
+        } else if (cursorPos) {
+          // Draw preview line from start to cursor
+          ctx.setLineDash([5, 5]);
+          drawLine(ctx, arcStart, cursorPos, 'rgba(255, 150, 50, 0.6)', 2);
+          ctx.setLineDash([]);
+          drawPoint(ctx, cursorPos, 'rgba(255, 150, 50, 0.6)', 4);
+        }
+      }
+    }
+
     // Restore canvas state (end zoom/pan transforms)
     ctx.restore();
-  }, [sketches, activeSketch, lines, currentLine, polygonPoints, circles, circleCenter, circleRadius, drawMode, snapToGrid, gridSize, canvasSize, zoom, pan]);
+  }, [sketches, activeSketch, lines, currentLine, polygonPoints, circles, circleCenter, circleRadius, drawMode, snapToGrid, gridSize, canvasSize, zoom, pan, cursorPos, hoveredEdge, arcs, arcStart, arcEnd, editingSketchIdx]);
 
   const snapToGridPoint = (x, y) => {
     if (!snapToGrid) return { x, y };
     const snappedX = Math.round(x / gridSize) * gridSize;
     const snappedY = Math.round(y / gridSize) * gridSize;
     return { x: snappedX, y: snappedY };
+  };
+
+  // Convert screen coordinates (with zoom/pan) back to original canvas coordinates
+  const screenToCanvas = (screenX, screenY) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: screenX, y: screenY };
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    // Inverse of: translate(centerX + pan.x, centerY + pan.y), scale(zoom), translate(-centerX, -centerY)
+    const x = (screenX - centerX - pan.x) / zoom + centerX;
+    const y = (screenY - centerY - pan.y) / zoom + centerY;
+    return { x, y };
   };
 
   const handleMouseDown = (e) => {
@@ -361,21 +513,99 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
     const y = (e.clientY - rect.top) * scaleY;
 
     const snappedPoint = snapToGridPoint(x, y);
+    const clickPoint = { x, y }; // Raw screen coords
+
+    // Check if clicking on a saved sketch to start editing (only for drawing tools)
+    if ((drawMode === 'line' || drawMode === 'polygon') && editingSketchIdx === null) {
+      // Only trigger if no active drawing in progress
+      const hasActiveDrawing = lines.length > 0 || polygonPoints.length > 0 || currentLine.length > 0;
+
+      if (!hasActiveDrawing) {
+        // Check if clicking near an edge of any saved sketch
+        const CLICK_THRESHOLD = 15;
+
+        for (let sketchIdx = 0; sketchIdx < sketches.length; sketchIdx++) {
+          const sketch = sketches[sketchIdx];
+          if (!sketch.visible) continue;
+
+          let edges = [];
+          if (sketch.originalLines) {
+            edges = sketch.originalLines;
+          } else if (sketch.original2DPoints && sketch.original2DPoints.length > 1) {
+            for (let i = 0; i < sketch.original2DPoints.length; i++) {
+              const next = (i + 1) % sketch.original2DPoints.length;
+              edges.push([sketch.original2DPoints[i], sketch.original2DPoints[next]]);
+            }
+          }
+
+          for (let edgeIdx = 0; edgeIdx < edges.length; edgeIdx++) {
+            // Skip cut edges
+            if (sketch.cutEdges && sketch.cutEdges.includes(edgeIdx)) continue;
+
+            const edge = edges[edgeIdx];
+            const dist = pointToLineDistance(clickPoint, edge[0], edge[1]);
+
+            if (dist < CLICK_THRESHOLD) {
+              // Found a sketch to edit
+              startEditingSketch(sketchIdx);
+              return; // Don't process as normal click
+            }
+          }
+        }
+      }
+    }
 
     if (drawMode === 'line') {
-      // Line mode: each click adds a point, every 2 points creates a line
+      // Line mode: auto-chaining - first click starts, each subsequent click extends from last point
       // Limit to 500 lines to prevent memory issues
       if (lines.length >= 500) {
         alert('Maximum 500 lines reached. Press Enter to save or Backspace to undo.');
         return;
       }
-      if (currentLine.length === 0) {
+
+      // Check if clicking near ANY existing vertex to close the loop (need at least 2 lines)
+      if (lines.length >= 2) {
+        // Small threshold - only closes if clicking directly on a vertex
+        const closeThreshold = (gridSize * 0.5) / zoom;
+
+        // Check all vertices (start points of all lines + end point of last line)
+        const allVertices = [
+          ...lines.map((line, idx) => ({ point: line[0], index: idx, isStart: true })),
+          { point: lines[lines.length - 1][1], index: lines.length - 1, isEnd: true }
+        ];
+
+        for (const vertex of allVertices) {
+          const dist = Math.sqrt((snappedPoint.x - vertex.point.x) ** 2 + (snappedPoint.y - vertex.point.y) ** 2);
+          if (dist < closeThreshold) {
+            // Close the loop - add line from last point to this vertex (but don't save yet)
+            const lastPoint = lines[lines.length - 1][1];
+            if (Math.abs(lastPoint.x - vertex.point.x) > 1 || Math.abs(lastPoint.y - vertex.point.y) > 1) {
+              setLines(prev => [...prev, [lastPoint, vertex.point]]);
+            }
+            // Don't auto-save - user must press Enter to save
+            return;
+          }
+        }
+      }
+
+      if (lines.length === 0 && currentLine.length === 0) {
+        // First click - just store the starting point
         setCurrentLine([snappedPoint]);
-      } else if (currentLine.length === 1) {
-        // Complete the line
+      } else if (currentLine.length === 1 && lines.length === 0) {
+        // Second click - create first line segment
         const newLine = [currentLine[0], snappedPoint];
         setLines(prev => [...prev, newLine]);
-        setCurrentLine([]); // Reset for next line
+        setCurrentLine([]); // Clear - we now chain from lines array
+        if (onPointAdd) onPointAdd(snappedPoint);
+      } else if (lines.length > 0) {
+        // Subsequent clicks - chain from last line's endpoint
+        const lastEndpoint = lines[lines.length - 1][1];
+        // Skip if same point clicked twice
+        if (Math.abs(snappedPoint.x - lastEndpoint.x) < 1 && Math.abs(snappedPoint.y - lastEndpoint.y) < 1) {
+          return;
+        }
+        const newLine = [lastEndpoint, snappedPoint];
+        setLines(prev => [...prev, newLine]);
         if (onPointAdd) onPointAdd(snappedPoint);
       }
     } else if (drawMode === 'polygon') {
@@ -431,18 +661,256 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
         setCircleCenter(null);
         setCircleRadius(0);
       }
+    } else if (drawMode === 'cut') {
+      // Cut mode: click on an edge to remove it
+      // Use raw coordinates - originalLines are stored in screen-space coords
+      const clickPoint = { x, y };
+      let nearestEdge = null;
+      let nearestSketchIdx = -1;
+      let nearestEdgeIdx = -1;
+      let minDist = Infinity;
+
+      sketches.forEach((sketch, sketchIdx) => {
+        if (sketch.visible === false) return;
+
+        if (sketch.type === 'lines' && sketch.originalLines) {
+          sketch.originalLines.forEach((line, lineIdx) => {
+            // Point-to-line-segment distance
+            const dist = pointToLineDistance(clickPoint, line[0], line[1]);
+            if (dist < minDist && dist < gridSize * 2) {
+              minDist = dist;
+              nearestSketchIdx = sketchIdx;
+              nearestEdgeIdx = lineIdx;
+              nearestEdge = line;
+            }
+          });
+        } else if (sketch.type === 'polygon' && sketch.original2DPoints) {
+          const points = sketch.original2DPoints;
+          for (let i = 0; i < points.length; i++) {
+            const p1 = points[i];
+            const p2 = points[(i + 1) % points.length];
+            const dist = pointToLineDistance(clickPoint, p1, p2);
+            if (dist < minDist && dist < gridSize) {
+              minDist = dist;
+              nearestSketchIdx = sketchIdx;
+              nearestEdgeIdx = i;
+              nearestEdge = [p1, p2];
+            }
+          }
+        }
+      });
+
+      if (nearestEdge && nearestSketchIdx >= 0) {
+        // Remove this edge - mark as cut
+        // For now, we'll update the sketch to have a 'cutEdges' array
+        const updatedSketch = { ...sketches[nearestSketchIdx] };
+        if (!updatedSketch.cutEdges) updatedSketch.cutEdges = [];
+        updatedSketch.cutEdges.push(nearestEdgeIdx);
+
+        // Update the sketch via callback
+        if (onSketchUpdate) {
+          onSketchUpdate(nearestSketchIdx, updatedSketch);
+        }
+      }
+    } else if (drawMode === 'point') {
+      // Point mode: click on an edge to add a point
+      // Use raw coordinates - originalLines/original2DPoints are stored in screen-space coords
+      const clickPoint = { x, y };
+      let nearestEdge = null;
+      let nearestSketchIdx = -1;
+      let nearestEdgeIdx = -1;
+      let minDist = Infinity;
+      let insertionPoint = null;
+
+      sketches.forEach((sketch, sketchIdx) => {
+        if (sketch.visible === false) return;
+
+        if (sketch.type === 'polygon' && sketch.original2DPoints) {
+          const points = sketch.original2DPoints;
+          for (let i = 0; i < points.length; i++) {
+            const p1 = points[i];
+            const p2 = points[(i + 1) % points.length];
+            const { dist, point } = pointToLineDistanceWithProjection(clickPoint, p1, p2);
+            if (dist < minDist && dist < gridSize * 2) {
+              minDist = dist;
+              nearestSketchIdx = sketchIdx;
+              nearestEdgeIdx = i;
+              nearestEdge = [p1, p2];
+              insertionPoint = point;
+            }
+          }
+        } else if (sketch.type === 'lines' && sketch.originalLines) {
+          sketch.originalLines.forEach((line, lineIdx) => {
+            const { dist, point } = pointToLineDistanceWithProjection(clickPoint, line[0], line[1]);
+            if (dist < minDist && dist < gridSize * 2) {
+              minDist = dist;
+              nearestSketchIdx = sketchIdx;
+              nearestEdgeIdx = lineIdx;
+              nearestEdge = line;
+              insertionPoint = point;
+            }
+          });
+        }
+      });
+
+      if (nearestEdge && nearestSketchIdx >= 0 && insertionPoint) {
+        // Insert point into the sketch
+        const updatedSketch = { ...sketches[nearestSketchIdx] };
+        const newPoints = [...(updatedSketch.original2DPoints || [])];
+        newPoints.splice(nearestEdgeIdx + 1, 0, insertionPoint);
+        updatedSketch.original2DPoints = newPoints;
+
+        // Also update normalized points
+        const canvas = canvasRef.current;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const uniformScale = Math.min(centerX, centerY);
+        updatedSketch.points = newPoints.map(p => ({
+          x: (p.x - centerX) / uniformScale,
+          y: -(p.y - centerY) / uniformScale
+        }));
+
+        if (onSketchUpdate) {
+          onSketchUpdate(nearestSketchIdx, updatedSketch);
+        }
+      }
+    } else if (drawMode === 'arc') {
+      // Arc mode: click start point, click end point, click to set curvature
+      if (!arcStart) {
+        // First click - set start point
+        setArcStart(snappedPoint);
+      } else if (!arcEnd) {
+        // Second click - set end point
+        setArcEnd(snappedPoint);
+      } else {
+        // Third click - set control point and finalize arc
+        const midX = (arcStart.x + arcEnd.x) / 2;
+        const midY = (arcStart.y + arcEnd.y) / 2;
+        // Calculate control point: offset from midpoint towards click position
+        const controlPoint = snappedPoint;
+
+        // Add completed arc
+        setArcs(prev => [...prev, {
+          start: arcStart,
+          end: arcEnd,
+          control: controlPoint
+        }]);
+
+        // Reset for next arc
+        setArcStart(null);
+        setArcEnd(null);
+        setArcControlPoint(null);
+      }
     }
   };
 
-  const handleMouseMove = (e) => {
-    if (drawMode === 'circle' && circleCenter) {
-      const canvas = canvasRef.current;
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
+  // Helper: distance from point to line segment
+  const pointToLineDistance = (p, a, b) => {
+    const A = p.x - a.x;
+    const B = p.y - a.y;
+    const C = b.x - a.x;
+    const D = b.y - a.y;
 
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let t = -1;
+    if (lenSq !== 0) t = dot / lenSq;
+
+    let xx, yy;
+    if (t < 0) { xx = a.x; yy = a.y; }
+    else if (t > 1) { xx = b.x; yy = b.y; }
+    else { xx = a.x + t * C; yy = a.y + t * D; }
+
+    return Math.sqrt((p.x - xx) ** 2 + (p.y - yy) ** 2);
+  };
+
+  // Helper: distance from point to line segment with projection point
+  const pointToLineDistanceWithProjection = (p, a, b) => {
+    const A = p.x - a.x;
+    const B = p.y - a.y;
+    const C = b.x - a.x;
+    const D = b.y - a.y;
+
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let t = -1;
+    if (lenSq !== 0) t = Math.max(0, Math.min(1, dot / lenSq));
+
+    const xx = a.x + t * C;
+    const yy = a.y + t * D;
+
+    return {
+      dist: Math.sqrt((p.x - xx) ** 2 + (p.y - yy) ** 2),
+      point: { x: xx, y: yy }
+    };
+  };
+
+  const handleMouseMove = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    // Track cursor for preview lines in polygon and line modes
+    if (drawMode === 'polygon' && polygonPoints.length > 0) {
+      const snapped = snapToGridPoint(x, y);
+      setCursorPos(snapped);
+    } else if (drawMode === 'line' && (currentLine.length > 0 || lines.length > 0)) {
+      const snapped = snapToGridPoint(x, y);
+      setCursorPos(snapped);
+    } else if ((drawMode === 'cut' || drawMode === 'point') && sketches.length > 0) {
+      // Track hovered edge for cut/point tools - use raw screen coords
+      const hoverPoint = { x, y };
+      let nearestEdge = null;
+      let nearestSketchIdx = -1;
+      let nearestEdgeIdx = -1;
+      let minDist = Infinity;
+
+      sketches.forEach((sketch, sketchIdx) => {
+        if (sketch.visible === false) return;
+
+        if (sketch.type === 'lines' && sketch.originalLines) {
+          sketch.originalLines.forEach((line, lineIdx) => {
+            const dist = pointToLineDistance(hoverPoint, line[0], line[1]);
+            if (dist < minDist && dist < gridSize * 2) {
+              minDist = dist;
+              nearestSketchIdx = sketchIdx;
+              nearestEdgeIdx = lineIdx;
+              nearestEdge = line;
+            }
+          });
+        } else if (sketch.type === 'polygon' && sketch.original2DPoints) {
+          const points = sketch.original2DPoints;
+          for (let i = 0; i < points.length; i++) {
+            const p1 = points[i];
+            const p2 = points[(i + 1) % points.length];
+            const dist = pointToLineDistance(hoverPoint, p1, p2);
+            if (dist < minDist && dist < gridSize * 2) {
+              minDist = dist;
+              nearestSketchIdx = sketchIdx;
+              nearestEdgeIdx = i;
+              nearestEdge = [p1, p2];
+            }
+          }
+        }
+      });
+
+      if (nearestEdge) {
+        setHoveredEdge({ sketchIdx: nearestSketchIdx, edgeIdx: nearestEdgeIdx, edge: nearestEdge });
+      } else {
+        setHoveredEdge(null);
+      }
+      setCursorPos(snapped);
+    } else {
+      setCursorPos(null);
+      setHoveredEdge(null);
+    }
+
+    if (drawMode === 'circle' && circleCenter) {
       const dx = x - circleCenter.x;
       const dy = y - circleCenter.y;
       const radius = Math.sqrt(dx * dx + dy * dy);
@@ -529,11 +997,53 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
     return distance < threshold;
   };
 
+  // Start editing an existing saved sketch
+  const startEditingSketch = (sketchIdx) => {
+    const sketch = sketches[sketchIdx];
+    if (!sketch) return;
+
+    // Store backup for cancel
+    setEditingSketchBackup({ ...sketch });
+    setEditingSketchIdx(sketchIdx);
+
+    // Load sketch data into active state based on type
+    if (sketch.type === 'lines' && sketch.originalLines) {
+      setLines([...sketch.originalLines]);
+      setDrawMode('line');
+      if (onToolChange) onToolChange('line');
+    } else if (sketch.type === 'polygon' && sketch.original2DPoints) {
+      setPolygonPoints([...sketch.original2DPoints]);
+      setDrawMode('polygon');
+      if (onToolChange) onToolChange('polygon');
+    }
+
+    // Clear any in-progress drawing
+    setCurrentLine([]);
+    setCircleCenter(null);
+    setCircleRadius(0);
+  };
+
   const completeSketch = () => {
     if (drawMode === 'line' && lines.length > 0) {
       // Check if lines form a closed loop
       const isClosed = checkIfClosed([lines[0][0], ...lines.map(l => l[1])]);
-      if (onSketchComplete) {
+
+      if (editingSketchIdx !== null) {
+        // Update existing sketch
+        const updatedSketch = {
+          ...editingSketchBackup,
+          lines: lines,
+          originalLines: lines,
+          closed: isClosed,
+          cutEdges: [] // Reset cut edges since we're redefining the lines
+        };
+        if (onSketchUpdate) {
+          onSketchUpdate(editingSketchIdx, updatedSketch);
+        }
+        setEditingSketchIdx(null);
+        setEditingSketchBackup(null);
+      } else if (onSketchComplete) {
+        // Create new sketch
         onSketchComplete({
           lines: lines,
           type: 'lines',
@@ -555,7 +1065,22 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
         }
       }
 
-      if (onSketchComplete) {
+      if (editingSketchIdx !== null) {
+        // Update existing sketch
+        const updatedSketch = {
+          ...editingSketchBackup,
+          points: cleanedPoints,
+          original2DPoints: cleanedPoints,
+          closed: true,
+          cutEdges: []
+        };
+        if (onSketchUpdate) {
+          onSketchUpdate(editingSketchIdx, updatedSketch);
+        }
+        setEditingSketchIdx(null);
+        setEditingSketchBackup(null);
+      } else if (onSketchComplete) {
+        // Create new sketch
         onSketchComplete({
           points: cleanedPoints,
           type: 'polygon',
@@ -576,20 +1101,52 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       setCircles([]);
       setCircleCenter(null);
       setCircleRadius(0);
+      setEditingSketchIdx(null);
+      setEditingSketchBackup(null);
+    } else if (drawMode === 'arc' && arcs.length > 0) {
+      // Save each arc as a separate sketch (or as a group)
+      arcs.forEach(arc => {
+        if (onSketchComplete) {
+          onSketchComplete({
+            type: 'arc',
+            arc: arc,
+            originalArc: arc,
+            closed: false
+          });
+        }
+      });
+      // Clear to start new drawing
+      setArcs([]);
+      setArcStart(null);
+      setArcEnd(null);
+      setArcControlPoint(null);
     }
   };
 
   const handleKeyPress = (e) => {
-    // Escape - Cancel only current in-progress drawing (not saved sketches)
+    // Escape - Cancel current drawing or edit mode
     if (e.key === 'Escape') {
+      // If editing, restore original sketch and exit edit mode
+      if (editingSketchIdx !== null && editingSketchBackup) {
+        // Restore the original sketch (it's still in sketches array)
+        // Just clear the active drawing state and exit edit mode
+        setEditingSketchIdx(null);
+        setEditingSketchBackup(null);
+      }
+
+      // Clear active drawing
       setCurrentLine([]);
       setPolygonPoints([]);
       setCircleCenter(null);
       setCircleRadius(0);
-      // Only clear unsaved lines in line mode
       if (drawMode === 'line') {
         setLines([]);
       }
+      // Clear arc state
+      setArcs([]);
+      setArcStart(null);
+      setArcEnd(null);
+      setArcControlPoint(null);
     }
 
     // Backspace or Delete - Remove last element
@@ -612,6 +1169,15 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
           setCircleRadius(0);
         } else if (circles.length > 0) {
           setCircles(prev => prev.slice(0, -1));
+        }
+      } else if (drawMode === 'arc') {
+        // Clear arc in reverse order of creation
+        if (arcEnd) {
+          setArcEnd(null);
+        } else if (arcStart) {
+          setArcStart(null);
+        } else if (arcs.length > 0) {
+          setArcs(prev => prev.slice(0, -1));
         }
       }
     }
@@ -650,6 +1216,42 @@ const Canvas2D = ({ onSketchComplete, sketches, activeSketch, onPointAdd, active
       setCircleCenter(null);
       setCircleRadius(0);
       if (onToolChange) onToolChange('circle');
+    }
+
+    // X key - Switch to cut mode
+    if (e.key === 'x' && !e.ctrlKey) {
+      setDrawMode('cut');
+      setLines([]);
+      setPolygonPoints([]);
+      setCurrentLine([]);
+      setCircleCenter(null);
+      setCircleRadius(0);
+      if (onToolChange) onToolChange('cut');
+    }
+
+    // V key - Switch to point mode
+    if (e.key === 'v' && !e.ctrlKey) {
+      setDrawMode('point');
+      setLines([]);
+      setPolygonPoints([]);
+      setCurrentLine([]);
+      setCircleCenter(null);
+      setCircleRadius(0);
+      if (onToolChange) onToolChange('point');
+    }
+
+    // A key - Switch to arc mode
+    if (e.key === 'a' && !e.ctrlKey) {
+      setDrawMode('arc');
+      setLines([]);
+      setPolygonPoints([]);
+      setCurrentLine([]);
+      setCircleCenter(null);
+      setCircleRadius(0);
+      setArcStart(null);
+      setArcEnd(null);
+      setArcControlPoint(null);
+      if (onToolChange) onToolChange('arc');
     }
 
     // Arrow keys - Pan canvas
@@ -927,6 +1529,36 @@ const ViewportManager = forwardRef(({
         visible: true,
         created: new Date().toISOString()
       };
+    } else if (sketchData.type === 'arc') {
+      // Handle arc
+      if (!sketchData.arc) return;
+
+      // Normalize arc points using uniform scale
+      const normalizedArc = {
+        start: {
+          x: (sketchData.arc.start.x - centerX) / uniformScale,
+          y: -(sketchData.arc.start.y - centerY) / uniformScale
+        },
+        end: {
+          x: (sketchData.arc.end.x - centerX) / uniformScale,
+          y: -(sketchData.arc.end.y - centerY) / uniformScale
+        },
+        control: {
+          x: (sketchData.arc.control.x - centerX) / uniformScale,
+          y: -(sketchData.arc.control.y - centerY) / uniformScale
+        }
+      };
+
+      newSketch = {
+        id: `sketch_${Date.now()}`,
+        type: 'arc',
+        name: `Arc ${sketches.length + 1}`,
+        arc: normalizedArc,
+        originalArc: sketchData.arc,
+        closed: false,
+        visible: true,
+        created: new Date().toISOString()
+      };
     }
 
     if (newSketch) {
@@ -951,6 +1583,14 @@ const ViewportManager = forwardRef(({
           <Canvas2D
             onSketchComplete={handleSketchComplete}
             sketches={sketches}
+            onSketchUpdate={(idx, updatedSketch) => {
+              // Update internal sketches state
+              setSketches(prev => prev.map((s, i) => i === idx ? updatedSketch : s));
+              // Also sync with App.jsx features for Feature Tree and Extrusion
+              if (onFeatureUpdate && updatedSketch.id) {
+                onFeatureUpdate(updatedSketch.id, updatedSketch);
+              }
+            }}
             activeSketch={activeSketch}
             onPointAdd={handlePointAdd}
             activeTool={activeTool}

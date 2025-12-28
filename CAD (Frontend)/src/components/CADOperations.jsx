@@ -5,28 +5,35 @@ import cadGeometryService from '../cad/CADGeometryService';
 
 /**
  * Extract ordered points from lines by walking the chain
+ * @param {Array} lines - Array of line segments [[{x,y}, {x,y}], ...]
+ * @param {Array} cutEdges - Optional array of indices of lines that have been cut
  */
-const extractOrderedPointsFromLines = (lines) => {
+const extractOrderedPointsFromLines = (lines, cutEdges = []) => {
   if (!lines || lines.length === 0) return [];
+
+  // Filter out cut edges
+  const activeLines = lines.filter((_, idx) => !cutEdges.includes(idx));
+
+  if (activeLines.length === 0) return [];
 
   const orderedPoints = [];
   const usedLines = new Set();
 
-  // Start with first line
-  orderedPoints.push(lines[0][0]);
-  orderedPoints.push(lines[0][1]);
+  // Start with first active line
+  orderedPoints.push(activeLines[0][0]);
+  orderedPoints.push(activeLines[0][1]);
   usedLines.add(0);
 
   // Walk the chain
-  let lastPoint = lines[0][1];
+  let lastPoint = activeLines[0][1];
   let changed = true;
 
-  while (changed && usedLines.size < lines.length) {
+  while (changed && usedLines.size < activeLines.length) {
     changed = false;
-    for (let i = 0; i < lines.length; i++) {
+    for (let i = 0; i < activeLines.length; i++) {
       if (usedLines.has(i)) continue;
 
-      const line = lines[i];
+      const line = activeLines[i];
       const dist0 = Math.sqrt((line[0].x - lastPoint.x) ** 2 + (line[0].y - lastPoint.y) ** 2);
       const dist1 = Math.sqrt((line[1].x - lastPoint.x) ** 2 + (line[1].y - lastPoint.y) ** 2);
 
@@ -85,10 +92,22 @@ const CADOperations = ({ sketches = [], onExtrudeComplete }) => {
 
     // Get points from sketch - walk line chain to preserve order
     let sketchPoints;
+    const cutEdges = sketch.cutEdges || [];
+
     if (sketch.type === 'polygon' && sketch.points) {
+      // For polygons, filter out cut edges from the point list
+      if (cutEdges.length > 0) {
+        setError('Cannot extrude: sketch has cut edges (open geometry). Close the shape first.');
+        return;
+      }
       sketchPoints = sketch.points;
     } else if (sketch.type === 'lines' && sketch.lines) {
-      sketchPoints = extractOrderedPointsFromLines(sketch.lines);
+      sketchPoints = extractOrderedPointsFromLines(sketch.lines, cutEdges);
+      // Check if we have a closed shape after removing cut edges
+      if (cutEdges.length > 0 && sketchPoints.length < 3) {
+        setError('Cannot extrude: not enough edges after cutting. Need at least 3.');
+        return;
+      }
     }
 
     if (!sketchPoints || sketchPoints.length < 3) {

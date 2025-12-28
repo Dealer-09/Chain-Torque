@@ -20,6 +20,8 @@ import {
   FaRobot,
   FaTrash,
   FaEraser,
+  FaDotCircle,
+  FaWaveSquare,
 } from "react-icons/fa";
 import ViewportManager from "./components/ViewportManager.jsx";
 import FeatureTree from "./components/FeatureTree.jsx";
@@ -123,13 +125,19 @@ const App = () => {
     }
   };
 
-  // Update feature
-  const handleFeatureUpdate = (featureId, updates) => {
-    setFeatures(prev => prev.map(feature =>
-      feature.id === featureId
-        ? { ...feature, ...updates }
-        : feature
-    ));
+  // Update feature (used by Cut Tool and Point Tool)
+  const handleFeatureUpdate = (featureId, updatedData) => {
+    setFeatures(prev => prev.map(feature => {
+      if (feature.id === featureId) {
+        return { ...feature, ...updatedData };
+      }
+      return feature;
+    }));
+
+    // Also update in ViewportManager sketches
+    if (viewportRef.current?.updateSketch) {
+      viewportRef.current.updateSketch(featureId, updatedData);
+    }
   };
 
   // Select feature
@@ -182,28 +190,87 @@ const App = () => {
     alert(`Project "${name}" saved successfully!`);
   };
 
-  // Download Project
-  const handleDownload = () => {
-    const format = prompt('Enter format (stl or glb):', 'glb');
+  // Download Project as STL or GLB
+  const handleDownload = async () => {
+    const format = prompt('Enter format (stl or glb):', 'stl');
     if (!format || !['stl', 'glb'].includes(format.toLowerCase())) {
       alert('Please enter "stl" or "glb"');
       return;
     }
 
-    // For now, export project data as JSON (real STL/GLB would need OpenCascade export)
-    const projectData = {
-      name: projectName,
-      features,
-      exportedAt: new Date().toISOString()
-    };
+    // Get features with mesh data
+    const meshFeatures = features.filter(f => f.meshData);
 
-    const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${projectName}.${format.toLowerCase()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (meshFeatures.length === 0) {
+      alert('No 3D geometry to export. Draw a sketch and extrude it first!');
+      return;
+    }
+
+    try {
+      // Import Three.js and exporters dynamically
+      const THREE = await import('three');
+
+      // Create a scene with all meshes
+      const exportScene = new THREE.Scene();
+
+      meshFeatures.forEach((feature, index) => {
+        const { vertices, indices, normals } = feature.meshData;
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        if (indices && indices.length > 0) {
+          geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+        }
+        if (normals && normals.length > 0) {
+          geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+        } else {
+          geometry.computeVertexNormals();
+        }
+
+        const material = new THREE.MeshStandardMaterial({ color: 0x4ecdc4 });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.name = feature.name || `Part_${index + 1}`;
+        exportScene.add(mesh);
+      });
+
+      if (format.toLowerCase() === 'stl') {
+        // Use STLExporter
+        const { STLExporter } = await import('three/examples/jsm/exporters/STLExporter.js');
+        const exporter = new STLExporter();
+        const stlString = exporter.parse(exportScene, { binary: true });
+
+        const blob = new Blob([stlString], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${projectName}.stl`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        alert(`Exported ${meshFeatures.length} part(s) to ${projectName}.stl`);
+      } else {
+        // Use GLTFExporter for GLB
+        const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js');
+        const exporter = new GLTFExporter();
+
+        exporter.parse(exportScene, (result) => {
+          const blob = new Blob([result], { type: 'application/octet-stream' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${projectName}.glb`;
+          a.click();
+          URL.revokeObjectURL(url);
+
+          alert(`Exported ${meshFeatures.length} part(s) to ${projectName}.glb`);
+        }, (error) => {
+          alert('GLB export failed: ' + error.message);
+        }, { binary: true });
+      }
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Export failed: ' + err.message);
+    }
   };
 
   // Undo - send event to ViewportManager
@@ -269,7 +336,6 @@ const App = () => {
           <FaUndo title="Undo (Backspace)" onClick={handleUndo} style={{ cursor: 'pointer' }} />
           <FaRedo title="Redo" onClick={handleRedo} style={{ cursor: 'pointer' }} />
           <FaCopy title="Copy" />
-          <FaCut title="Cut" />
           <FaPaste title="Paste" />
           <FaDownload title="Download (STL/GLB)" onClick={handleDownload} style={{ cursor: 'pointer' }} />
           <FaSearchPlus
@@ -325,9 +391,24 @@ const App = () => {
               className={activeTool === 'circle' ? 'active' : ''}
               onClick={() => handleToolSelect('circle')}
             />
+            <FaWaveSquare
+              title="Arc Tool (A) - Draw curved edges"
+              className={activeTool === 'arc' ? 'active' : ''}
+              onClick={() => handleToolSelect('arc')}
+            />
           </div>
           <div className="tool-section">
             <h3>Edit</h3>
+            <FaDotCircle
+              title="Point Tool (V) - Add points on edges"
+              className={activeTool === 'point' ? 'active' : ''}
+              onClick={() => handleToolSelect('point')}
+            />
+            <FaCut
+              title="Cut Tool (X) - Remove edges"
+              className={activeTool === 'cut' ? 'active' : ''}
+              onClick={() => handleToolSelect('cut')}
+            />
             <FaEraser
               title="Undo Last (Backspace)"
               className={activeTool === 'eraser' ? 'active' : ''}

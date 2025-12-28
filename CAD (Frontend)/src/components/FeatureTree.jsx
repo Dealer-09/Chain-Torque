@@ -42,8 +42,23 @@ const FeatureTree = ({ features, onFeatureToggle, onFeatureDelete, onFeatureSele
                   {feature.name || `${feature.type} ${index + 1}`}
                 </div>
                 <div className="feature-details">
-                  {feature.type === 'polygon' && `${feature.points?.length || 0} points`}
-                  {feature.type === 'lines' && `${feature.lines?.length || 0} lines${feature.closed ? ' (closed)' : ''}`}
+                  {feature.type === 'polygon' && (
+                    <>
+                      {`${feature.points?.length || 0} points`}
+                      {feature.cutEdges?.length > 0 && (
+                        <span className="cut-warning"> ⚠️ {feature.cutEdges.length} cut</span>
+                      )}
+                    </>
+                  )}
+                  {feature.type === 'lines' && (
+                    <>
+                      {`${feature.lines?.length || 0} lines`}
+                      {feature.cutEdges?.length > 0
+                        ? <span className="cut-warning"> ⚠️ {feature.cutEdges.length} cut (open)</span>
+                        : feature.closed ? ' (closed)' : ''
+                      }
+                    </>
+                  )}
                   {feature.type === '3d-solid' && `Extruded${feature.height ? ` H:${feature.height}` : ''}`}
                   {!['polygon', 'lines', '3d-solid'].includes(feature.type) && `${feature.type}`}
                 </div>

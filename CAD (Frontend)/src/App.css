@@ -582,6 +582,11 @@ html,
   margin-top: 2px;
 }
 
+.feature-details .cut-warning {
+  color: hsl(25 95% 63%);
+  font-weight: 600;
+}
+
 .feature-controls {
   display: flex;
   gap: 5px;
