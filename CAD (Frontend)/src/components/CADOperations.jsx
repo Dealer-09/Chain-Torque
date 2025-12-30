@@ -127,17 +127,12 @@ const CADOperations = ({ sketches = [], onExtrudeComplete }) => {
             // This edge is an arc - sample points along the quadratic bezier
             const arcEdge = arcEdgeMap.get(i);
 
-            console.log(`\n=== ARC EDGE ${i} ===`);
-            console.log('arcEdge:', arcEdge);
-            console.log('p1Norm:', p1Norm, 'p2Norm:', p2Norm);
-
             // Get the control point in normalized coordinates
             let bezierControl;
 
             if (arcEdge.controlNorm) {
               // Use pre-computed normalized control point
               bezierControl = arcEdge.controlNorm;
-              console.log('Using normalized controlNorm:', bezierControl);
             } else {
               // Legacy: convert screen coords to normalized
               const canvas = document.querySelector('.sketch-canvas');
@@ -151,18 +146,14 @@ const CADOperations = ({ sketches = [], onExtrudeComplete }) => {
                 x: (arcEdge.control.x - centerX) / uniformScale,
                 y: -(arcEdge.control.y - centerY) / uniformScale
               };
-              console.log('Converted control from screen coords:', bezierControl);
             }
 
-            // ALWAYS use polygon vertices as bezier start/end for correct direction
-            // p1Norm = points[i], p2Norm = points[(i+1)%n] - this is the edge direction
+            // Use polygon vertices as bezier start/end for correct direction
             const bezierStart = p1Norm;
             const bezierEnd = p2Norm;
-            console.log('Using polygon vertices for bezier:', { bezierStart, bezierEnd, bezierControl });
 
             // Add start point
             sketchPoints.push(p1Norm);
-            console.log('Added start point:', p1Norm);
 
             // Sample arc using normalized coordinates
             const SAMPLES = 8;
@@ -181,7 +172,6 @@ const CADOperations = ({ sketches = [], onExtrudeComplete }) => {
             sketchPoints.push(p1Norm);
           }
         }
-        console.log('\n=== FINAL sketchPoints ===', sketchPoints);
       } else {
         // No arc edges, use points directly
         sketchPoints = sketch.points;
