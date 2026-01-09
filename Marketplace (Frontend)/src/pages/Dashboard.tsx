@@ -100,7 +100,7 @@ const Dashboard = () => {
 
       const walletAddress = connectedWallet || clerkWallet || metadataWallet || fallbackWallet;
 
-      console.log('Dashboard loading for wallet:', walletAddress);
+
 
       const promises = [
         // Get marketplace stats

@@ -348,7 +348,7 @@ const Upload: React.FC = () => {
       </div>
 
       <div>
-        <label className={labelClasses}>Price (USD) *</label>
+        <label className={labelClasses}>Price (ETH) *</label>
         <input
           type='number'
           value={uploadData.price}
