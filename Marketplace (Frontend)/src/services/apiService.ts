@@ -64,12 +64,8 @@ class ApiService {
   // Helper method for making requests
   async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
-    console.log('🌐 API Request:', {
-      url,
-      method: options.method || 'GET',
-      endpoint,
-      baseUrl: this.baseUrl,
-    });
+    // Log removed for security/cleanliness
+
 
     // Don't set Content-Type for FormData - browser sets it automatically with boundary
     const isFormData = options.body instanceof FormData;

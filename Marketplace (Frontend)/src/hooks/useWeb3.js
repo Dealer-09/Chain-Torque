@@ -110,10 +110,10 @@ export const useMarketplace = () => {
         apiService.getMarketplaceStats(),
       ]);
 
-      console.log('📦 Raw marketplace response:', itemsResponse);
+      // Log removed
 
-  // Fix: Use backend 'data' field for marketplace items
-  const items = itemsResponse.data || [];
+      // Fix: Use backend 'data' field for marketplace items
+      const items = itemsResponse.data || [];
 
       setMarketplace({
         items: items,

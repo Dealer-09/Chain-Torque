@@ -116,30 +116,16 @@ const Upload: React.FC = () => {
       }
 
       // STEP 1: Upload files to IPFS (backend handles IPFS upload only)
-      console.log('[Upload] Step 1: Uploading files to IPFS...');
-      const formData = new FormData();
-      formData.append('title', uploadData.modelName);
-      formData.append('description', uploadData.description);
-      formData.append('category', uploadData.category);
-
-      // Add model file
-      formData.append('model', uploadData.files[0]);
-
-      // Add image files
-      uploadData.images.forEach((image) => {
-        formData.append('image', image);
-      });
-
       const ipfsResponse = await apiService.uploadFilesToIPFS(formData);
       if (!ipfsResponse.success || !ipfsResponse.data?.tokenURI) {
         throw new Error(ipfsResponse.error || 'Failed to upload files to IPFS');
       }
 
+      // Log removed
       const { tokenURI, imageUrl, images, modelUrl } = ipfsResponse.data;
-      console.log('[Upload] IPFS upload complete:', tokenURI);
 
       // STEP 2: User signs createToken with their MetaMask wallet
-      console.log('[Upload] Step 2: Please sign the transaction in MetaMask...');
+      // Log removed
       alert('Files uploaded! Please sign the transaction in MetaMask to mint your NFT.\n\nYou will be the on-chain owner and receive payments directly when your item sells.');
 
       // Import web3Service dynamically to avoid circular deps
@@ -164,7 +150,7 @@ const Upload: React.FC = () => {
         throw new Error('Transaction was cancelled or failed.');
       }
 
-      console.log('[Upload] Mint transaction:', mintResult.transactionHash);
+      if (import.meta.env.DEV) console.log('[Upload] Mint transaction:', mintResult.transactionHash);
 
       // Extract tokenId from the receipt
       // The receipt should have logs with the MarketItemCreated event
@@ -191,10 +177,10 @@ const Upload: React.FC = () => {
         throw new Error('Could not find Token ID in transaction. Please check Etherscan and try syncing manually.');
       }
 
-      console.log('[Upload] Token ID:', tokenId);
+      if (import.meta.env.DEV) console.log('[Upload] Token ID:', tokenId);
 
       // STEP 3: Sync to backend database
-      console.log('[Upload] Step 3: Syncing to database...');
+      if (import.meta.env.DEV) console.log('[Upload] Step 3: Syncing to database...');
       const syncResponse = await apiService.syncCreation({
         tokenId,
         transactionHash: mintResult.transactionHash,
