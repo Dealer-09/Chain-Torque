@@ -219,6 +219,13 @@ const Edit = () => {
     </Card>
   );
 
+  // Helper to truncate address
+  const truncateAddress = (addr: string) => {
+    if (!addr) return '';
+    if (addr.length < 12) return addr;
+    return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
+  };
+
   // Purchased Item Card Component
   const PurchasedItemCard = ({ item }: { item: PurchasedItem }) => (
     <Card
@@ -259,7 +266,7 @@ const Edit = () => {
           </h3>
 
           <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
-            <span>by {item.seller}</span>
+            <span title={item.seller}>by {truncateAddress(item.seller)}</span>
             <div className="flex items-center gap-1">
               <Star className="h-3 w-3 fill-warning text-warning" />
               <span>{item.rating}</span>
@@ -276,36 +283,40 @@ const Edit = () => {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-green-600">Purchased</span>
+          <div className="flex flex-col gap-3 mt-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-green-600 flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-green-600 animate-pulse" />
+                Purchased
+              </span>
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Download className="h-3 w-3" />
                 {item.downloads} downloads
               </span>
             </div>
-            <div className="flex gap-2">
+
+            <div className="grid grid-cols-2 gap-2">
               {item.modelUrl && (
                 <Button
                   size="sm"
                   variant="outline"
-                  className="hover:bg-primary/10 transition-all"
+                  className="w-full hover:bg-primary/10 transition-all text-xs sm:text-sm"
                   onClick={(e) => handleDownloadAll(item, e)}
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Download All
+                  Download
                 </Button>
               )}
               <Button
                 size="sm"
-                className="bg-gradient-primary hover:bg-primary-hover transition-all hover:scale-105"
+                className={!item.modelUrl ? "col-span-2 w-full" : "w-full"}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleEditModel(item);
                 }}
               >
                 <Edit3 className="h-4 w-4 mr-1" />
-                Edit
+                Editor
               </Button>
             </div>
           </div>
