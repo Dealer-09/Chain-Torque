@@ -91,7 +91,7 @@ export function MarketplaceSection() {
           ? resolveAssetUrl(item.imageUrl)
           : featuredModels[index % featuredModels.length].image,
         price: item.price ? `${parseFloat(item.price).toFixed(4)} ETH` : '0.001 ETH',
-        seller: item.username || (item.seller ? `${item.seller.slice(0, 6)}...${item.seller.slice(-4)}` : 'Creator'),
+        seller: item.username || 'Creator', // Security: Hide wallet address
         rating: 4.5 + Math.random() * 0.5,
         downloads: parseInt(String(item.downloads)) || Math.floor(Math.random() * 1000),
         fileTypes: ['GLB', 'STL'],
