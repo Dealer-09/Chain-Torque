@@ -204,7 +204,7 @@ export function Model3DViewer({ modelUrl, className = '', fileType }: Model3DVie
     return (
       <div
         className={`relative bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center ${className}`}
-        style={{ height: 400 }}
+        style={{ minHeight: 400 }}
       >
         <div className="text-center">
           <div className="text-red-500 mb-4">
@@ -233,7 +233,7 @@ export function Model3DViewer({ modelUrl, className = '', fileType }: Model3DVie
   return (
     <div
       className={`relative bg-gray-900 rounded-lg overflow-hidden ${className}`}
-      style={{ height: 400 }}
+      style={{ minHeight: 400 }}
     >
       <Suspense
         fallback={
