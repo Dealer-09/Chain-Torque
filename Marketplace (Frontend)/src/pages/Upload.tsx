@@ -116,6 +116,19 @@ const Upload: React.FC = () => {
       }
 
       // STEP 1: Upload files to IPFS (backend handles IPFS upload only)
+      const formData = new FormData();
+      formData.append('title', uploadData.modelName);
+      formData.append('description', uploadData.description);
+      formData.append('category', uploadData.category);
+
+      // Add model file
+      formData.append('model', uploadData.files[0]);
+
+      // Add image files
+      uploadData.images.forEach((image) => {
+        formData.append('image', image);
+      });
+
       const ipfsResponse = await apiService.uploadFilesToIPFS(formData);
       if (!ipfsResponse.success || !ipfsResponse.data?.tokenURI) {
         throw new Error(ipfsResponse.error || 'Failed to upload files to IPFS');
