@@ -1,5 +1,5 @@
 // Use environment variable, fallback to hardcoded for safety
-export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || "0x81d30090dbD376FC6B69Ebb2f85C3863cE84b3B6";
+export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || "0xeF5Df480688E33141253CE7F8e701d6B9A9C0BD7";
 export const MARKETPLACE_ABI = [
     "function purchaseToken(uint256 tokenId) external payable",
     "function createToken(string memory tokenURI, uint128 price, uint32 category, uint24 royalty) external payable returns (uint256)",
