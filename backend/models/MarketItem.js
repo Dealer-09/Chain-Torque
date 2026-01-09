@@ -24,6 +24,7 @@ const MarketItemSchema = new mongoose.Schema({
     seller: { type: String, required: true, lowercase: true, index: true },
     owner: { type: String, lowercase: true, index: true }, // Current owner
     creator: { type: String, lowercase: true }, // Original minter
+    username: { type: String, default: 'Creator' }, // Display name from Clerk
 
     // Status
     status: {

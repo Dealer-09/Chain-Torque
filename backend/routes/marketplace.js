@@ -76,6 +76,7 @@ router.post(
                 attributes: [
                     { trait_type: 'Category', value: category },
                     { trait_type: 'File Type', value: modelFile ? path.extname(modelFile.originalname).toUpperCase() : '' },
+                    { trait_type: 'Author', value: username || 'Creator' }, // Persist name to IPFS
                     { trait_type: 'Created', value: new Date().toISOString().split('T')[0] },
                     { trait_type: 'Marketplace', value: 'ChainTorque' },
                 ],
@@ -228,6 +229,21 @@ router.post('/upload-files', (req, res, next) => {
 
         console.log('[IPFS] Uploading metadata...');
         const metadataUpload = await uploadMetadata(metadata);
+
+        // [Storage Optimization] Log this upload to DB
+        const PendingUpload = require('../models/PendingUpload');
+        const pending = new PendingUpload({
+            tokenURI: metadataUpload.url,
+            modelUrl: modelUpload.url,
+            images: imageUploads,
+            // We might not have walletAddress in req.body for this route yet, 
+            // but if we do (from Auth middleware), use it. otherwise null.
+            // In the Upload.tsx, we don't send wallet address in body for /upload-files currently,
+            // we can refine that later.
+            status: 'pending'
+        });
+        await pending.save();
+        console.log(`[Storage] Logged pending upload: ${metadataUpload.url}`);
 
         // Return IPFS URLs - user will use tokenURI when calling createToken from frontend
         res.json({
