@@ -52,6 +52,8 @@ router.get('/:address/nfts', async (req, res) => {
 
     try {
         // Auto-Sync: Check chain for actual ownership
+        // DISABLED: getUserTokens returns active listings (owned by contract), triggering false "sold" updates
+        /*
         if (web3Manager.isReady()) {
             try {
                 // Get list of Token IDs owned by user from Smart Contract
@@ -78,6 +80,7 @@ router.get('/:address/nfts', async (req, res) => {
                 // Continue to serve DB data even if sync fails
             }
         }
+        */
 
         // Query DB directly
         const userNFTs = await MarketItem.find({

@@ -117,7 +117,17 @@ async function syncBlockchainToDB() {
       for (const item of result.items) {
         const exists = await MarketItem.findOne({ tokenId: item.tokenId });
         if (exists) {
-          // Item already exists, no action needed
+          // Check for differences and update if needed
+          const chainStatus = item.sold ? 'sold' : 'active';
+          if (exists.status !== chainStatus || (item.owner && exists.owner !== item.owner.toLowerCase())) {
+            console.log(`[SYNC] Updating Item #${item.tokenId}: Status ${exists.status}->${chainStatus}, Owner ${exists.owner}->${item.owner}`);
+            exists.status = chainStatus;
+            exists.owner = item.owner ? item.owner.toLowerCase() : exists.owner;
+            if (chainStatus === 'sold' && !exists.soldAt) {
+              exists.soldAt = new Date(); // Approximate
+            }
+            await exists.save();
+          }
         }
         if (!exists) {
           await MarketItem.create({
