@@ -109,11 +109,15 @@ async function syncBlockchainToDB() {
     if (!web3.isReady()) return;
     console.log('🔄 Syncing Blockchain to Database...');
     const result = await web3.getMarketItems();
+    console.log(`[DEBUG] Sync fetched ${result.items?.length || 0} items from chain. Success: ${result.success}`);
 
     if (result.success && Array.isArray(result.items)) {
       let newCount = 0;
       for (const item of result.items) {
         const exists = await MarketItem.findOne({ tokenId: item.tokenId });
+        if (exists) {
+          // Item already exists, no action needed
+        }
         if (!exists) {
           await MarketItem.create({
             tokenId: item.tokenId,
