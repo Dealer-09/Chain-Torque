@@ -40,8 +40,10 @@ async function main() {
   const deploymentInfo = {
     ChainTorqueMarketplace: address,
     deploymentTransaction: deploymentTxHash,
-    network: 'hardhat',
-    chainId: 31337,
+    ChainTorqueMarketplace: address,
+    deploymentTransaction: deploymentTxHash,
+    network: network.name,
+    chainId: network.config.chainId,
     listingPrice: ethers.utils.formatEther(listingPrice),
     deployedAt: new Date().toISOString(),
   };

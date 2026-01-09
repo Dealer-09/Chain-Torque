@@ -116,6 +116,17 @@ class EventListener {
                 }
             }
 
+            // Try to resolve username from DB
+            let creatorName = 'Creator';
+            try {
+                const user = await User.findOne({ walletAddress: seller.toLowerCase() });
+                if (user && (user.username || user.name)) {
+                    creatorName = user.username || user.name;
+                }
+            } catch (e) {
+                // Ignore lookup error
+            }
+
             const newItem = new MarketItem({
                 tokenId: Number(tokenId),
                 title,
@@ -129,7 +140,7 @@ class EventListener {
                 seller: seller.toLowerCase(),
                 owner: seller.toLowerCase(),
                 creator: seller.toLowerCase(),
-                username: 'Creator (Auto-Synced)',
+                username: creatorName,
                 status: 'active',
                 transactionHash: event.transactionHash,
                 blockNumber: event.blockNumber

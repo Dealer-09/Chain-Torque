@@ -232,17 +232,19 @@ router.post('/upload-files', (req, res, next) => {
 
         // [Storage Optimization] Log this upload to DB
         const PendingUpload = require('../models/PendingUpload');
-        const pending = new PendingUpload({
-            tokenURI: metadataUpload.url,
-            modelUrl: modelUpload.url,
-            images: imageUploads,
-            // We might not have walletAddress in req.body for this route yet, 
-            // but if we do (from Auth middleware), use it. otherwise null.
-            // In the Upload.tsx, we don't send wallet address in body for /upload-files currently,
-            // we can refine that later.
-            status: 'pending'
-        });
-        await pending.save();
+
+        // Use findOneAndUpdate with upsert to avoid duplicate key errors
+        await PendingUpload.findOneAndUpdate(
+            { tokenURI: metadataUpload.url },
+            {
+                tokenURI: metadataUpload.url,
+                modelUrl: modelUpload.url,
+                images: imageUploads,
+                status: 'pending',
+                updatedAt: new Date()
+            },
+            { upsert: true, new: true }
+        );
         console.log(`[Storage] Logged pending upload: ${metadataUpload.url}`);
 
         // Return IPFS URLs - user will use tokenURI when calling createToken from frontend
