@@ -182,11 +182,10 @@ UserSchema.statics.getActiveUsers = function (days = 30, limit = 50) {
 };
 
 // Pre-save middleware
-UserSchema.pre('save', function (next) {
+UserSchema.pre('save', async function () {
   if (this.isNew && !this.firstTransactionDate) {
     this.firstTransactionDate = new Date();
   }
-  next();
 });
 
 module.exports = mongoose.model('User', UserSchema);

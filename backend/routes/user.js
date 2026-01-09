@@ -7,7 +7,7 @@ const { web3Manager } = require('../web3'); // Ensure this export exists or upda
 // In server.js it was `const web3 = new Web3Manager()`. Ideally we should have a singleton export.
 
 // User registration/login endpoint
-router.post('/register', async (req, res) => {
+router.post('/register', async (req, res, next) => {
     try {
         const { walletAddress, username, email } = req.body;
 
