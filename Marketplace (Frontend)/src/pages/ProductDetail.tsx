@@ -122,14 +122,14 @@ const ProductDetail = () => {
       price: `$${parseFloat(backendData.price) * 2000}`,
       priceETH: parseFloat(backendData.price),
       seller: {
+        // SECURITY: Never show wallet address in UI - only show username or generic "Creator"
         name:
           backendData.username ||
           backendData.sellerName ||
           backendData.seller_name ||
-          backendData.seller ||
-          'Unknown Creator',
+          'Creator', // Don't use backendData.seller (wallet address) as it exposes user's address
         avatar:
-          `https://api.dicebear.com/7.x/avataaars/svg?seed=${backendData.username || backendData.sellerName || backendData.seller_name || backendData.seller || 'Unknown Creator'}`,
+          `https://api.dicebear.com/7.x/avataaars/svg?seed=${backendData.username || backendData.sellerName || 'creator'}`,
         verified: true,
         rating: 4.8,
         totalSales: Math.floor(Math.random() * 50) + 10,
