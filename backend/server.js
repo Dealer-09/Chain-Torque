@@ -107,8 +107,9 @@ const MarketItem = require('./models/MarketItem');
 async function syncBlockchainToDB() {
   try {
     if (!web3.isReady()) return;
-    console.log('🔄 Syncing Blockchain to Database...');
-    const result = await web3.getMarketItems();
+    console.log('🔄 Syncing Blockchain to Database (Detailed)...');
+    // We need ALL items (Sold + Active) to populate user profiles correctly
+    const result = await web3.getAllMarketItems();
     console.log(`[DEBUG] Sync fetched ${result.items?.length || 0} items from chain. Success: ${result.success}`);
 
     if (result.success && Array.isArray(result.items)) {

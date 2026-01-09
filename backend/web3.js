@@ -327,85 +327,7 @@ class Web3Manager {
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        let tokenId = Number(item.tokenId); // Direct access thanks to contract update
-
-        // Default metadata values
-        let tokenURI = '';
-        let title = `NFT Model #${tokenId}`;
-        let description = '';
-        let imageUrl = '';
-        let modelUrl = '';
-        let images = [];
-
-        try {
-          tokenURI = await this.contract.tokenURI(tokenId);
-
-          if (tokenURI.startsWith('http') || tokenURI.startsWith('ipfs://')) {
-            let metadataUrl = tokenURI.startsWith('ipfs://')
-              ? tokenURI.replace('ipfs://', 'https://ipfs.io/ipfs/')
-              : tokenURI;
-
-            try {
-              const res = await fetch(metadataUrl);
-              if (res.ok) {
-                const metadata = await res.json();
-                title = metadata.name || title;
-                description = metadata.description || description;
-                imageUrl = metadata.image || '';
-                modelUrl = metadata.model || metadata.animation_url || '';
-                if (Array.isArray(metadata.images)) {
-                  images = metadata.images;
-                } else if (metadata.image) {
-                  images = [metadata.image];
-                }
-              } else {
-                title = `CAD Model #${tokenId}`;
-                description = `Professional 3D model in ${this.getCategoryName(item.category)} category`;
-              }
-            } catch (e) {
-              title = `CAD Model #${tokenId}`;
-              description = `Professional 3D model in ${this.getCategoryName(item.category)} category`;
-            }
-          } else {
-            try {
-              const metadata = JSON.parse(tokenURI);
-              title = metadata.name || title;
-              description = metadata.description || description;
-              imageUrl = metadata.image || '';
-              modelUrl = metadata.model || metadata.animation_url || '';
-              if (Array.isArray(metadata.images)) {
-                images = metadata.images;
-              } else if (metadata.image) {
-                images = [metadata.image];
-              }
-            } catch (e) {
-              if (tokenURI.includes('uploads/')) {
-                imageUrl = tokenURI;
-                images = [tokenURI];
-              }
-            }
-          }
-        } catch (e) {
-          // tokenURI may not exist; skip enrichment
-        }
-
-        formattedItems.push({
-          tokenId,
-          price: ethers.formatEther(item.price),
-          category: this.getCategoryName(item.category),
-          categoryId: item.category,
-          seller: item.seller,
-          owner: item.owner,
-          sold: item.sold,
-          createdAt: new Date(Number(item.createdAt) * 1000).toISOString(),
-          royalty: Number(item.royalty) / 100,
-          tokenURI,
-          title,
-          description,
-          imageUrl,
-          images,
-          modelUrl,
-        });
+        formattedItems.push(await this.formatMarketItem(item));
       }
 
       return { success: true, items: formattedItems, count: formattedItems.length };
@@ -413,6 +335,122 @@ class Web3Manager {
       console.error('Error fetching market items:', error.message);
       return { success: false, error: error.message, items: [] };
     }
+  }
+
+  /**
+   * Fetch ALL market items (Active AND Sold) for DB Sync.
+   * Leverages getCurrentTokenId() and getMarketItem() loop.
+   */
+  async getAllMarketItems() {
+    try {
+      if (!this.isReady()) throw new Error('Web3 Manager not initialized');
+
+      const currentTokenId = Number(await this.contract.getCurrentTokenId());
+      const formattedItems = [];
+
+      // Fetch all items one by one (or in batches if supported, but loop is fine for <1000 items)
+      // Parallelize for speed
+      const promises = [];
+      for (let i = 1; i <= currentTokenId; i++) {
+        promises.push(this.contract.getMarketItem(i).catch(e => null));
+      }
+
+      const rawItems = await Promise.all(promises);
+
+      for (const item of rawItems) {
+        if (item && item.tokenId > 0) {
+          formattedItems.push(await this.formatMarketItem(item));
+        }
+      }
+
+      return { success: true, items: formattedItems, count: formattedItems.length };
+    } catch (error) {
+      console.error('Error fetching ALL market items:', error.message);
+      return { success: false, error: error.message, items: [] };
+    }
+  }
+
+  // Refactored helper to avoid duplication
+  async formatMarketItem(item) {
+    let tokenId = Number(item.tokenId); // Direct access thanks to contract update
+
+    // Default metadata values
+    let tokenURI = '';
+    let title = `NFT Model #${tokenId}`;
+    let description = '';
+    let imageUrl = '';
+    let modelUrl = '';
+    let images = [];
+
+    try {
+      tokenURI = await this.contract.tokenURI(tokenId);
+
+      if (tokenURI.startsWith('http') || tokenURI.startsWith('ipfs://')) {
+        let metadataUrl = tokenURI.startsWith('ipfs://')
+          ? tokenURI.replace('ipfs://', 'https://ipfs.io/ipfs/')
+          : tokenURI;
+
+        try {
+          const res = await fetch(metadataUrl);
+          if (res.ok) {
+            const metadata = await res.json();
+            title = metadata.name || title;
+            description = metadata.description || description;
+            imageUrl = metadata.image || '';
+            modelUrl = metadata.model || metadata.animation_url || '';
+            if (Array.isArray(metadata.images)) {
+              images = metadata.images;
+            } else if (metadata.image) {
+              images = [metadata.image];
+            }
+          } else {
+            title = `CAD Model #${tokenId}`;
+            description = `Professional 3D model in ${this.getCategoryName(item.category)} category`;
+          }
+        } catch (e) {
+          title = `CAD Model #${tokenId}`;
+          description = `Professional 3D model in ${this.getCategoryName(item.category)} category`;
+        }
+      } else {
+        try {
+          const metadata = JSON.parse(tokenURI);
+          title = metadata.name || title;
+          description = metadata.description || description;
+          imageUrl = metadata.image || '';
+          modelUrl = metadata.model || metadata.animation_url || '';
+          if (Array.isArray(metadata.images)) {
+            images = metadata.images;
+          } else if (metadata.image) {
+            images = [metadata.image];
+          }
+        } catch (e) {
+          if (tokenURI.includes('uploads/')) {
+            imageUrl = tokenURI;
+            images = [tokenURI];
+          }
+        }
+      }
+    } catch (e) {
+      // tokenURI may not exist; skip enrichment
+    }
+
+    return {
+      tokenId,
+      price: ethers.formatEther(item.price),
+      category: this.getCategoryName(item.category),
+      categoryId: item.category,
+      seller: item.seller,
+      owner: item.owner,
+      sold: item.sold,
+      createdAt: new Date(Number(item.createdAt) * 1000).toISOString(),
+      royalty: Number(item.royalty) / 100,
+      tokenURI,
+      title,
+      description,
+      imageUrl,
+      images,
+      modelUrl,
+    };
   }
 
   async getTokensByCategory(category) {

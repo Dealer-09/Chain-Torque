@@ -2,10 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const MarketItem = require('../models/MarketItem');
-const { web3Manager } = require('../web3'); // Ensure this export exists or update web3.js
-// Note: We might need to adjust the import of web3 depending on how it's exported.
-// In server.js it was `const web3 = new Web3Manager()`. Ideally we should have a singleton export.
-
+const { web3Manager } = require('../web3');
 // User registration/login endpoint
 router.post('/register', async (req, res, next) => {
     try {
@@ -116,14 +113,9 @@ router.get('/:address/purchases', async (req, res) => {
 
         const allOwnedItems = [...ownedItems, ...additionalOwned];
 
-        // Filter out items user created themselves
-        // Check both seller (now preserved) and creator fields
         const purchases = allOwnedItems.filter(item => {
-            // If seller is this user, they created it - not a purchase
-            if (item.seller && item.seller.toLowerCase() === userAddress) return false;
-            // Also check creator field as backup
-            if (item.creator && item.creator.toLowerCase() === userAddress) return false;
-            // Otherwise it's a purchase
+            // ALLOW ALL OWNED ITEMS (Even if created by user)
+            // This ensures the "Edit" page shows everything the user currently owns/holds.
             return true;
         });
 

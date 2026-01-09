@@ -448,23 +448,7 @@ router.get('/:id', async (req, res) => {
 
         // Auto-heal: If item is active locally, check chain to ensure it hasn't been sold
         // This handles cases where the backend missed the 'MarketItemSold' event
-        if (item && item.status === 'active' && web3.isReady()) {
-            try {
-                const chainItem = await web3.contract.getMarketItem(paramTokenId);
-                // Contract returns struct, 'sold' is boolean
-                if (chainItem.sold) {
-                    console.log(`[Auto-Heal] Item #${paramTokenId} found SOLD on chain but ACTIVE in DB. Updating...`);
-                    item.status = 'sold';
-                    item.owner = chainItem.owner.toLowerCase();
-                    // Keep original seller for history (seller is required field)
-                    item.soldAt = new Date();
-                    await item.save();
-                }
-            } catch (e) {
-                // Ignore chain errors (e.g. temporary RPC failure) and return DB data
-                console.warn(`[Auto-Heal] Failed to check chain for #${paramTokenId}:`, e.message);
-            }
-        }
+        // Auto-heal disabled for stability
 
         if (item) {
             res.json({ success: true, data: item });
@@ -733,15 +717,8 @@ router.get('/sync-status/:id', async (req, res) => {
 
         // Detect Mismatch: on-chain SOLD vs db ACTIVE
         // Contract 'sold' is a boolean
-        if (item.sold && dbItem.status === 'active') {
-            console.log(`[Healing] Item #${tokenId} is SOLD on-chain but ACTIVE in DB. Healing...`);
-            dbItem.status = 'sold';
-            dbItem.owner = item.owner.toLowerCase();
-            // Keep original seller for history (seller is required field)
-            dbItem.soldAt = new Date();
-            await dbItem.save();
-            updated = true;
-        }
+        // Detect Mismatch: on-chain SOLD vs db ACTIVE
+        // Auto-heal disabled for stability
 
         res.json({
             success: true,
