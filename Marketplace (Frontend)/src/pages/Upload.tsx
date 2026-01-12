@@ -47,6 +47,16 @@ const Upload: React.FC = () => {
   ) => {
     if (e.target.files) {
       const fileArray = Array.from(e.target.files);
+
+      if (type === 'images') {
+        if (fileArray.length > 5) {
+          alert('You can select a maximum of 5 images.');
+          // Limit to 5
+          handleInputChange(type, fileArray.slice(0, 5));
+          return;
+        }
+      }
+
       handleInputChange(type, fileArray);
     }
   };
@@ -491,7 +501,7 @@ const Upload: React.FC = () => {
           </div>
           <div>
             <p className='text-xs text-muted-foreground uppercase tracking-wide'>Price</p>
-            <p className='font-medium text-foreground mt-1'>${uploadData.price}</p>
+            <p className='font-medium text-foreground mt-1'>{uploadData.price} ETH</p>
           </div>
           <div>
             <p className='text-xs text-muted-foreground uppercase tracking-wide'>Files</p>
