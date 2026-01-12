@@ -27,22 +27,24 @@ interface DisplayItem {
   downloads: number;
   fileTypes: string[];
   software: string[];
+  category?: string;
 }
 
 const featuredModels: DisplayItem[] = [
-  { id: 1, tokenId: 1, title: 'Professional Gear Assembly', image: cadGear, price: '$49.99', seller: 'MechDesign Pro', rating: 4.8, downloads: 1245, fileTypes: ['GLB', 'STL'], software: ['Blender', 'Three.js'] },
-  { id: 2, tokenId: 2, title: 'Carbon Fiber Drone Frame', image: cadDrone, price: '$29.99', seller: 'AeroTech', rating: 4.9, downloads: 856, fileTypes: ['GLB', 'OBJ'], software: ['Blender', 'WebGL'] },
-  { id: 3, tokenId: 3, title: 'Engine Cylinder Head', image: cadEngine, price: '$89.99', seller: 'AutoCAD Masters', rating: 4.7, downloads: 2134, fileTypes: ['GLTF', 'GLB'], software: ['Three.js', 'WebGL'] },
-  { id: 4, tokenId: 4, title: 'Robotic Arm Joint', image: cadRobot, price: '$75.00', seller: 'RoboDesign', rating: 4.9, downloads: 967, fileTypes: ['GLB', 'STL'], software: ['SolidWorks', 'Fusion360'] },
+  { id: 1, tokenId: 1, title: 'Professional Gear Assembly', image: cadGear, price: '$49.99', seller: 'MechDesign Pro', rating: 4.8, downloads: 1245, fileTypes: ['GLB', 'STL'], software: ['Blender', 'Three.js'], category: 'Other' },
+  { id: 2, tokenId: 2, title: 'Carbon Fiber Drone Frame', image: cadDrone, price: '$29.99', seller: 'AeroTech', rating: 4.9, downloads: 856, fileTypes: ['GLB', 'OBJ'], software: ['Blender', 'WebGL'], category: 'Vehicles' },
+  { id: 3, tokenId: 3, title: 'Engine Cylinder Head', image: cadEngine, price: '$89.99', seller: 'AutoCAD Masters', rating: 4.7, downloads: 2134, fileTypes: ['GLTF', 'GLB'], software: ['Three.js', 'WebGL'], category: 'Vehicles' },
+  { id: 4, tokenId: 4, title: 'Robotic Arm Joint', image: cadRobot, price: '$75.00', seller: 'RoboDesign', rating: 4.9, downloads: 967, fileTypes: ['GLB', 'STL'], software: ['SolidWorks', 'Fusion360'], category: 'Electronics' },
 ];
 
 const categories = [
-  { name: 'Mechanical', icon: '⚙️', count: '450+' },
-  { name: 'Automotive', icon: '🚗', count: '320+' },
-  { name: 'Aerospace', icon: '✈️', count: '180+' },
-  { name: 'Robotics', icon: '🤖', count: '290+' },
   { name: 'Architecture', icon: '🏛️', count: '410+' },
+  { name: 'Vehicles', icon: '🚗', count: '320+' },
+  { name: 'Characters', icon: '👾', count: '150+' },
+  { name: 'Furniture', icon: '🪑', count: '210+' },
   { name: 'Electronics', icon: '💡', count: '260+' },
+  { name: 'Nature', icon: '🌿', count: '180+' },
+  { name: 'Other', icon: '📦', count: '500+' },
 ];
 
 export function HeroSection() {
@@ -66,6 +68,7 @@ export function HeroSection() {
     downloads: item.downloads || 0,
     fileTypes: ['GLB', 'STL'],
     software: ['Blender', 'Three.js'],
+    category: item.category || 'Other',
   });
 
   // Filter items based on search and category
@@ -82,12 +85,11 @@ export function HeroSection() {
         );
       }
 
-      // Apply category filter (match against title for now)
+      // Apply category filter
       if (selectedCategory) {
         const cat = selectedCategory.toLowerCase();
         filtered = filtered.filter(item =>
-          item.title.toLowerCase().includes(cat) ||
-          categories.find(c => c.name === selectedCategory)?.name.toLowerCase() === cat
+          item.category && item.category.toLowerCase() === cat
         );
       }
 

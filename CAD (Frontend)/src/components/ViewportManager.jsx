@@ -752,10 +752,8 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
 
           // Check arc edges
           if (sketch.arcEdges && sketch.arcEdges.length > 0) {
-            console.log('Cut tool checking arc edges:', sketch.arcEdges);
             sketch.arcEdges.forEach((arcEdge, arcIdx) => {
               const dist = pointToArcDistance(clickPoint, arcEdge);
-              console.log(`Arc ${arcIdx} dist: ${dist}, threshold: ${gridSize * 2}`);
               // Use larger threshold for arcs since curves can be harder to click
               if (dist < minDist && dist < gridSize * 2) {
                 minDist = dist;
@@ -763,7 +761,6 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
                 // Use special marker for arc edge: negative index - 1
                 nearestEdgeIdx = -(arcIdx + 1); // -1 for arcIdx 0, -2 for arcIdx 1, etc.
                 nearestEdge = arcEdge;
-                console.log('Arc edge matched!');
               }
             });
           }
@@ -1620,6 +1617,8 @@ const ViewportManager = forwardRef(({
   const setViewMode = onViewModeChange ?? setLocalViewMode;
 
   const [sketches, setSketches] = useState([]);
+
+
   const [activeSketch, setActiveSketch] = useState(null);
   const [zoom, setZoom] = useState(1); // Zoom for 2D canvas
   const threeViewerRef = useRef();
@@ -1791,6 +1790,11 @@ const ViewportManager = forwardRef(({
         control: {
           x: (sketchData.arc.control.x - centerX) / uniformScale,
           y: -(sketchData.arc.control.y - centerY) / uniformScale
+        },
+        // Store normalized control point for consistent sampling
+        controlNorm: {
+          x: (sketchData.arc.control.x - centerX) / uniformScale,
+          y: -(sketchData.arc.control.y - centerY) / uniformScale
         }
       };
 
@@ -1829,6 +1833,12 @@ const ViewportManager = forwardRef(({
             onSketchComplete={handleSketchComplete}
             sketches={sketches}
             onSketchUpdate={(idx, updatedSketch) => {
+              // Preserve normalized control points if not explicitly updated
+              if (sketches[idx].type === 'polygon' && updatedSketch.arcEdges && sketches[idx].arcEdges) {
+                // Copy checking or restoration logic could go here if needed, 
+                // but for now we assume updatedSketch is constructed carefully by the tool.
+              }
+
               // Update internal sketches state
               setSketches(prev => prev.map((s, i) => i === idx ? updatedSketch : s));
               // Also sync with App.jsx features for Feature Tree and Extrusion

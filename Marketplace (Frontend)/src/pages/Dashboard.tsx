@@ -15,7 +15,9 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/hooks/useAuth';
+import { useWalletAddress } from '@/hooks/useWalletAddress';
 import apiService from '@/services/apiService';
 
 interface NFT {
@@ -66,6 +68,9 @@ interface DashboardState {
 
 const Dashboard = () => {
   const { user } = useAuthContext();
+  const navigate = useNavigate();
+  // Use centralized hook for consistent address resolution
+  const { walletAddress } = useWalletAddress();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardState>({
@@ -84,21 +89,16 @@ const Dashboard = () => {
 
   useEffect(() => {
     loadDashboardData();
-  }, [user]);
+  }, [user, walletAddress]);
 
   const loadDashboardData = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // 1. Determine Wallet Address (Priority: LocalStorage > Clerk Web3 > Clerk Metadata > Fallback)
-      // This ensures consistency with ProductDetail's purchase flow
-      const connectedWallet = localStorage.getItem('walletAddress');
-      const clerkWallet = user?.primaryWeb3Wallet?.web3Wallet;
-      const metadataWallet = user?.unsafeMetadata?.walletAddress as string;
-      const fallbackWallet = ''; // No fallback - user must connect wallet
+      // Wallet address resolution handled by hook
+      // console.log('Dashboard loading for wallet:', walletAddress);
 
-      const walletAddress = connectedWallet || clerkWallet || metadataWallet || fallbackWallet;
 
 
 
@@ -124,14 +124,16 @@ const Dashboard = () => {
 
       // Process user NFTs
       const userNFTs: NFT[] =
-        (userNFTsResponse as any).success && Array.isArray((userNFTsResponse as any).nfts)
-          ? (userNFTsResponse as any).nfts
+        (userNFTsResponse as any).success
+          ? (Array.isArray((userNFTsResponse as any).nfts) ? (userNFTsResponse as any).nfts :
+            Array.isArray((userNFTsResponse as any).data) ? (userNFTsResponse as any).data : [])
           : [];
 
       // Process Purchases
       const userPurchases: Purchase[] =
-        (purchasesResponse as any).success && Array.isArray((purchasesResponse as any).purchases)
-          ? (purchasesResponse as any).purchases
+        (purchasesResponse as any).success
+          ? (Array.isArray((purchasesResponse as any).purchases) ? (purchasesResponse as any).purchases :
+            Array.isArray((purchasesResponse as any).data) ? (purchasesResponse as any).data : [])
           : [];
 
       // Process Transactions (Sales & Purchases mixed)
@@ -327,7 +329,7 @@ const Dashboard = () => {
               <CardHeader>
                 <CardTitle className='flex items-center justify-between'>
                   <span>My Models</span>
-                  <Button size='sm'>
+                  <Button size='sm' onClick={() => navigate('/upload')}>
                     <Upload className='h-4 w-4 mr-2' />
                     Upload New
                   </Button>
@@ -406,7 +408,7 @@ const Dashboard = () => {
                             Tx: {purchase.transactionHash.substring(0, 8)}...
                           </p>
                           <p className='text-xs text-muted-foreground mt-1'>
-                            {new Date(purchase.confirmedAt || purchase.createdAt).toLocaleDateString()}
+                            {new Date(purchase.confirmedAt || purchase.createdAt || Date.now()).toLocaleDateString()}
                           </p>
                         </div>
                         <div className='text-right'>
