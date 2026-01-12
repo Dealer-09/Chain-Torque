@@ -148,16 +148,8 @@ class ApiService {
     return this.request('/marketplace/stats', { method: 'GET' });
   }
 
-  async createMarketplaceItem(formData: FormData, authToken: string): Promise<ApiResponse<{ tokenId: number }>> {
-    // For FormData, we must NOT set Content-Type header; browser sets it with boundary
-    const headers: any = { Authorization: `Bearer ${authToken}` };
+  /* Legacy createMarketplaceItem removed. Use uploadFilesToIPFS + Sync logic. */
 
-    return this.request('/marketplace/create', {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
-  }
 
   /**
    * Syncs a client-side purchase with the backend database
@@ -258,18 +250,8 @@ class ApiService {
     });
   }
 
-  // Legacy aliases
-  async getMyNFTs(_authToken: string): Promise<ApiResponse<any[]>> {
-    return {
-      success: true,
-      data: [],
-      message: 'Need user wallet address',
-    };
-  }
+  // Legacy aliases removed.
 
-  async createNFT(formData: FormData, authToken: string): Promise<ApiResponse<{ tokenId: number }>> {
-    return this.createMarketplaceItem(formData, authToken);
-  }
 
   async isBackendConnected(): Promise<boolean> {
     try {
@@ -297,12 +279,8 @@ export const {
   getUserSales,
   getUserProfileByAddress,
   getMarketplaceStats,
-  createMarketplaceItem,
   syncPurchase,
-
   getUserProfile,
   uploadFile,
   isBackendConnected,
-  getMyNFTs,
-  createNFT,
 } = apiService;

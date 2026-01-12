@@ -8,7 +8,6 @@
     "dev": "nodemon server.js",
     "compile": "npx hardhat compile",
     "deploy": "npx hardhat run scripts/deploy.js --network localhost",
-    "clean-db": "node scripts/reset-db.js",
     "node": "npx hardhat node"
   },
   "keywords": [
