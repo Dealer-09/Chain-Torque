@@ -4,6 +4,7 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, Box, Sphere, Cylinder, Cone, Html, useGLTF, Center } from '@react-three/drei';
 import * as THREE from 'three';
 import cadGeometryService from '../cad/CADGeometryService';
+import { sampleSketchPoints } from '../utils/geometryUtils';
 
 // Work plane grid
 const WorkPlane = () => (
@@ -18,7 +19,6 @@ const WorkPlane = () => (
     fadeDistance={35}
     fadeStrength={1}
     position={[0, 0, 0]}
-    rotation={[-Math.PI / 2, 0, 0]}
   />
 );
 
@@ -128,7 +128,7 @@ const ExtrudedMesh = ({ meshData, position = [0, 0, 0], color = '#4ecdc4' }) => 
   geometry.computeVertexNormals();
 
   return (
-    <mesh geometry={geometry} position={position}>
+    <mesh geometry={geometry} position={position} rotation={[-Math.PI / 2, 0, 0]}>
       <meshStandardMaterial
         color={color}
         side={THREE.DoubleSide}
@@ -145,21 +145,9 @@ const SketchPreview = ({ sketch, height = 0 }) => {
 
   let points = [];
 
-  // Handle polygon type
-  if (sketch.type === 'polygon' && sketch.points) {
-    points = sketch.points.map(p => new THREE.Vector3(p.x * 3, height, -p.y * 3));
-    if (points.length > 2) points.push(points[0]); // Close loop
-  }
-  // Handle lines type
-  else if (sketch.type === 'lines' && sketch.lines) {
-    // Extract points from line endpoints in order
-    const linePoints = [];
-    sketch.lines.forEach(line => {
-      linePoints.push(new THREE.Vector3(line[0].x * 3, height, -line[0].y * 3));
-      linePoints.push(new THREE.Vector3(line[1].x * 3, height, -line[1].y * 3));
-    });
-    points = linePoints;
-  }
+  // Use shared geometry utility to get points (includes arc sampling)
+  points = sampleSketchPoints(sketch).map(p => new THREE.Vector3(p.x * 3, height, -p.y * 3));
+  if (points.length > 2) points.push(points[0]); // Close loop
 
   if (points.length < 2) return null;
 
@@ -247,13 +235,7 @@ const Scene = ({ cameraRef, modelUrl, onModelLoad, extrudedGeometries, sketches 
 
 const ThreeViewer = forwardRef((props, ref) => {
   const cameraRef = useRef();
-  const [extrudedGeometries, setExtrudedGeometries] = useState([]);
-  const [extrudedSketchIds, setExtrudedSketchIds] = useState(new Set()); // Track which sketches are extruded
-  const [extrudeHeight, setExtrudeHeight] = useState(2);
-  const [selectedSketchId, setSelectedSketchId] = useState(null);
-  const [isExtruding, setIsExtruding] = useState(false);
   const [cadReady, setCadReady] = useState(false);
-  const [extrudeError, setExtrudeError] = useState(null);
 
   const { sketches = [], features = [], modelUrl, onModelLoad } = props;
 
@@ -262,19 +244,10 @@ const ThreeViewer = forwardRef((props, ref) => {
     .filter(f => f.type === '3d-solid' && f.meshData)
     .map(f => ({ id: f.id, meshData: f.meshData, color: '#4ecdc4' }));
 
-  // Combine local extruded geometries with feature solids
-  const allExtrudedGeometries = [...extrudedGeometries, ...featureSolids];
-
   // Initialize CAD service
   useEffect(() => {
     cadGeometryService.init().then(() => setCadReady(true)).catch(() => { });
   }, []);
-
-  // Get un-extruded sketches (both polygons and closed lines)
-  const availableSketches = sketches.filter(s =>
-    !extrudedSketchIds.has(s.id) &&
-    (s.type === 'polygon' || (s.type === 'lines' && s.closed))
-  );
 
   useImperativeHandle(ref, () => ({
     fitToScreen: () => cameraRef.current?.fitToScreen(),
@@ -285,112 +258,6 @@ const ThreeViewer = forwardRef((props, ref) => {
     zoomIn: () => cameraRef.current?.zoomIn(),
     zoomOut: () => cameraRef.current?.zoomOut(),
   }));
-
-  const handleExtrude = async () => {
-    if (!cadReady || !selectedSketchId) return;
-
-    const sketch = sketches.find(s => s.id === selectedSketchId);
-    if (!sketch) return;
-
-    // Get points from sketch - handle both polygon and lines types
-    let sketchPoints;
-    if (sketch.type === 'polygon' && sketch.points) {
-      sketchPoints = sketch.points;
-    } else if (sketch.type === 'lines' && sketch.lines) {
-      // Walk the line chain to preserve order
-      sketchPoints = extractOrderedPointsFromLines(sketch.lines);
-    }
-
-    if (!sketchPoints || sketchPoints.length < 3) {
-      setExtrudeError('Sketch must have at least 3 points');
-      return;
-    }
-
-    setIsExtruding(true);
-    setExtrudeError(null);
-
-    try {
-      // Convert normalized points to world coordinates
-      const worldPoints = sketchPoints.map(p => ({
-        x: p.x * 3,  // Scale to world units
-        y: p.y * 3
-      }));
-
-      // Create extruded shape using OpenCascade
-      const brepShape = cadGeometryService.extrudeProfile(worldPoints, extrudeHeight);
-      const meshData = cadGeometryService.shapeToMesh(brepShape);
-
-      // Add to rendered geometries
-      setExtrudedGeometries(prev => [...prev, {
-        id: `extrude_${Date.now()}`,
-        sourceSketchId: sketch.id,
-        meshData,
-        color: '#4ecdc4'
-      }]);
-
-      // Mark sketch as extruded using local state
-      setExtrudedSketchIds(prev => new Set([...prev, sketch.id]));
-      setSelectedSketchId(null);
-    } catch (err) {
-      setExtrudeError(err.message || 'Extrusion failed');
-    } finally {
-      setIsExtruding(false);
-    }
-  };
-
-  // Helper: Extract ordered points from lines by walking the chain
-  const extractOrderedPointsFromLines = (lines) => {
-    if (!lines || lines.length === 0) return [];
-
-    const orderedPoints = [];
-    const usedLines = new Set();
-
-    // Start with first line
-    orderedPoints.push(lines[0][0]);
-    orderedPoints.push(lines[0][1]);
-    usedLines.add(0);
-
-    // Walk the chain
-    let lastPoint = lines[0][1];
-    let changed = true;
-
-    while (changed && usedLines.size < lines.length) {
-      changed = false;
-      for (let i = 0; i < lines.length; i++) {
-        if (usedLines.has(i)) continue;
-
-        const line = lines[i];
-        const dist0 = Math.sqrt((line[0].x - lastPoint.x) ** 2 + (line[0].y - lastPoint.y) ** 2);
-        const dist1 = Math.sqrt((line[1].x - lastPoint.x) ** 2 + (line[1].y - lastPoint.y) ** 2);
-
-        if (dist0 < 0.01) {
-          orderedPoints.push(line[1]);
-          lastPoint = line[1];
-          usedLines.add(i);
-          changed = true;
-          break;
-        } else if (dist1 < 0.01) {
-          orderedPoints.push(line[0]);
-          lastPoint = line[0];
-          usedLines.add(i);
-          changed = true;
-          break;
-        }
-      }
-    }
-
-    // Remove last point if it's the same as first (closed loop duplicate)
-    if (orderedPoints.length > 1) {
-      const first = orderedPoints[0];
-      const last = orderedPoints[orderedPoints.length - 1];
-      const dist = Math.sqrt((last.x - first.x) ** 2 + (last.y - first.y) ** 2);
-      if (dist < 0.01) {
-        orderedPoints.pop();
-      }
-    }
-
-    return orderedPoints;
-  };
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -404,11 +271,12 @@ const ThreeViewer = forwardRef((props, ref) => {
             cameraRef={cameraRef}
             modelUrl={modelUrl}
             onModelLoad={onModelLoad}
-            extrudedGeometries={allExtrudedGeometries}
+            extrudedGeometries={featureSolids}
             sketches={sketches}
           />
         </Suspense>
       </Canvas>
+
 
       {/* Extrusion is handled via sidebar CADOperations */}
 
@@ -431,7 +299,7 @@ const ThreeViewer = forwardRef((props, ref) => {
       </div>
 
       {/* Geometry counter */}
-      {extrudedGeometries.length > 0 && (
+      {featureSolids.length > 0 && (
         <div style={{
           position: 'absolute',
           bottom: '10px',
@@ -442,7 +310,7 @@ const ThreeViewer = forwardRef((props, ref) => {
           borderRadius: '6px',
           fontSize: '12px'
         }}>
-          3D Objects: {extrudedGeometries.length}
+          3D Objects: {featureSolids.length}
         </div>
       )}
 

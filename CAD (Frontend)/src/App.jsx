@@ -26,7 +26,6 @@ import {
 import ViewportManager from "./components/ViewportManager.jsx";
 import FeatureTree from "./components/FeatureTree.jsx";
 import CADOperations from "./components/CADOperations.jsx";
-import CADTestComponent from "./components/CADTestComponent.jsx";
 import "./App.css";
 
 const App = () => {
@@ -37,15 +36,13 @@ const App = () => {
   const [viewMode, setViewMode] = useState('2d'); // 2D sketch or 3D model
   const [features, setFeatures] = useState([]);
   const [selectedFeature, setSelectedFeature] = useState(null);
-  const [showCADTest, setShowCADTest] = useState(false); // Disabled in production
   const viewportRef = useRef();
 
   // Project state
-  const [projectName, setProjectName] = useState('Untitled Project');
+  const [projectName, setProjectName] = useState('Untitled Model');
 
   // Model loading state
   const [modelUrl, setModelUrl] = useState(null);
-  const [modelTitle, setModelTitle] = useState(null);
   const [modelInfo, setModelInfo] = useState(null);
 
   // Parse URL params on mount
@@ -56,7 +53,10 @@ const App = () => {
 
     if (model) {
       setModelUrl(decodeURIComponent(model));
-      setModelTitle(title ? decodeURIComponent(title) : 'Imported Model');
+    }
+
+    if (title) {
+      setProjectName(decodeURIComponent(title));
     }
   }, []);
 
@@ -291,6 +291,10 @@ const App = () => {
     if (confirmed) {
       // Clear App features
       setFeatures([]);
+      setProjectName('Untitled Model');
+      setModelUrl(null);
+      setModelInfo(null);
+
       // Clear ViewportManager sketches
       if (viewportRef.current?.clearAll) {
         viewportRef.current.clearAll();
@@ -323,7 +327,7 @@ const App = () => {
       <div className="topbar">
         <div className="topbar-left">
           <h1>ChainTorque CAD</h1>
-          <span className="filename">{modelTitle || 'untitled_model.cad'}</span>
+          <span className="filename">{projectName}</span>
           {modelInfo && (
             <span className="model-info" style={{ marginLeft: '15px', fontSize: '12px', color: '#888' }}>
               | Vertices: {modelInfo.vertices?.toLocaleString() || 0}
@@ -494,11 +498,6 @@ const App = () => {
               viewMode={viewMode}
               onViewModeChange={setViewMode}
             />
-
-            {/* OpenCascade CAD Test Panel */}
-            {showCADTest && (
-              <CADTestComponent />
-            )}
           </div>
         </div>
 

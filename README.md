@@ -32,7 +32,7 @@ ChainTorque/
 | **Runtime** | Bun (3x faster than Node.js) |
 | **Frontend** | React 18, Vite, Three.js, @react-three/fiber, Tailwind CSS |
 | **CAD Engine** | OpenCascade.js (WASM), Three.js, Custom 2D Canvas |
-| **Android** | Kotlin, Jetpack Compose, Hilt DI, Reown AppKit (WalletConnect) |
+| **Android** | Kotlin, Jetpack Compose, Hilt DI, MetaMask SDK |
 | **Backend** | Express, MongoDB, IPFS (Lighthouse SDK) |
 | **Blockchain** | Solidity (ERC-721), Hardhat, Ethereum Sepolia, ethers.js |
 | **Auth** | Clerk (Web3 wallet + social login) |
@@ -126,7 +126,7 @@ bun run dev:cad          # CAD editor (Port 3001)
 - [x] Render.com deployment (all 4 services)
 - [x] **Native Android App** (ChainTorque_Native)
   - [x] Jetpack Compose UI with Material 3
-  - [x] WalletConnect via Reown AppKit
+  - [x] Native Wallet Integration (MetaMask SDK)
   - [x] NFT marketplace browsing & purchasing
   - [x] User profiles and transaction history
 
