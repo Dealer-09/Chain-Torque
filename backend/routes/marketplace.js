@@ -490,7 +490,6 @@ router.get('/sync-status/:id', async (req, res) => {
 
         // Detect Mismatch: on-chain SOLD vs db ACTIVE
         // Contract 'sold' is a boolean
-        // Detect Mismatch: on-chain SOLD vs db ACTIVE
         // Auto-heal disabled for stability
 
         res.json({

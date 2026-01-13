@@ -53,34 +53,10 @@ router.get('/:address/nfts', async (req, res) => {
     try {
         // Auto-Sync: Check chain for actual ownership
         // DISABLED: getUserTokens returns active listings (owned by contract), triggering false "sold" updates
-        /*
-        if (web3Manager.isReady()) {
-            try {
-                // Get list of Token IDs owned by user from Smart Contract
-                const result = await web3Manager.getUserTokens(userAddress);
+        // Auto-Sync: Check chain for actual ownership
+        // DISABLED: getUserTokens returns active listings (owned by contract), triggering false "sold" updates
+        // Logic removed as it was dead code.
 
-                if (result.success && result.tokenIds.length > 0) {
-                    console.log(`[Auto-Sync] checking ${result.tokenIds.length} tokens for user ${userAddress}`);
-
-                    for (const tokenId of result.tokenIds) {
-                        const item = await MarketItem.findOne({ tokenId: tokenId });
-
-                        // If item exists but DB says owner is someone else (or it's active)
-                        if (item && (item.owner.toLowerCase() !== userAddress || item.status === 'active')) {
-                            console.log(`[Auto-Sync] correcting ownership for item #${tokenId}`);
-                            item.owner = userAddress;
-                            item.status = 'sold';
-                            if (!item.soldAt) item.soldAt = new Date();
-                            await item.save();
-                        }
-                    }
-                }
-            } catch (syncError) {
-                console.warn('[Auto-Sync] Warning: Failed to sync with blockchain:', syncError.message);
-                // Continue to serve DB data even if sync fails
-            }
-        }
-        */
 
         // Query DB directly
         const userNFTs = await MarketItem.find({
