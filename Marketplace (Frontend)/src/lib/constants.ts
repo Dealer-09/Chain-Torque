@@ -1,7 +1,5 @@
-// Deployed Contract Address (Sepolia Testnet)
-export const CONTRACT_ADDRESS = '0x9685Ac9d1d63C1442161e64A7A325Eaa7a505F00';
-export const NETWORK_ID = 11155111; // Sepolia
-export const NETWORK_NAME = 'Sepolia';
+// Use environment variable, fallback to hardcoded for safety
+export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || "0x4c977eeb40df1654b9959d34911De8362923eD5e";
 export const MARKETPLACE_ABI = [
     "function purchaseToken(uint256 tokenId) external payable",
     "function createToken(string memory tokenURI, uint128 price, uint32 category, uint24 royalty) external payable returns (uint256)",
