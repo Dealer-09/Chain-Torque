@@ -6,25 +6,38 @@ const { web3Manager } = require('../web3');
 // User registration/login endpoint
 router.post('/register', async (req, res, next) => {
     try {
-        const { walletAddress, username, email } = req.body;
+        const { walletAddress, username, email, displayName } = req.body;
 
         if (!walletAddress) {
             return res.status(400).json({ success: false, message: 'Wallet address is required' });
         }
 
-        // Check if user already exists
+        // Check if user already exists by Wallet
         let user = await User.findByWallet(walletAddress);
 
+        if (!user && email) {
+            // Check if user exists by Email (Wallet Migration Case)
+            user = await User.findOne({ email });
+            if (user) {
+                user.walletAddress = walletAddress.toLowerCase();
+            }
+        }
+
         if (!user) {
-            // Create new user
+            // Create new user (New Registration)
             user = new User({
                 walletAddress: walletAddress.toLowerCase(),
                 username,
+                displayName: displayName || username,
                 email,
                 lastActive: new Date()
             });
             await user.save();
         } else {
+            // Update existing user/migrated user
+            if (username) user.username = username;
+            if (displayName) user.displayName = displayName;
+            if (email) user.email = email;
             // Update last active
             await user.updateLastActive();
         }

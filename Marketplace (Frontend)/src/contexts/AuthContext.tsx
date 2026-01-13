@@ -16,10 +16,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (isLoaded) {
-      setIsLoading(false);
-    }
-  }, [isLoaded]);
+    const syncUser = async () => {
+      if (isLoaded) {
+        setIsLoading(false);
+
+        // Sync user to backend if logged in
+        if (user) {
+          const walletAddress = user.unsafeMetadata?.walletAddress as string;
+          if (walletAddress) {
+            // Prepare username similar to Upload.tsx logic
+            const username = user.username || '';
+
+            let displayName = '';
+            if (user.firstName) {
+              displayName = user.firstName;
+              if (user.lastName) displayName += ` ${user.lastName}`;
+            }
+
+            // Send to backend via new apiService method
+            try {
+              const { default: apiService } = await import('@/services/apiService');
+              await apiService.registerUser({
+                walletAddress,
+                username, // e.g. dealer-09
+                email: user.primaryEmailAddress?.emailAddress,
+                displayName // e.g. Archis
+              });
+            } catch (err) {
+              console.error('Failed to sync user to backend:', err);
+            }
+          }
+        }
+      }
+    };
+
+    syncUser();
+  }, [isLoaded, user]);
 
   const value = {
     user,

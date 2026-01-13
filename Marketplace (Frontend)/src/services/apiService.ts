@@ -238,6 +238,13 @@ class ApiService {
     });
   }
 
+  async registerUser(data: { walletAddress: string; username?: string; email?: string; displayName?: string }): Promise<ApiResponse<any>> {
+    return this.request('/user/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async uploadFile(file: File, authToken: string): Promise<ApiResponse<{ url: string; filename: string; size: number }>> {
     const formData = new FormData();
     formData.append('file', file);

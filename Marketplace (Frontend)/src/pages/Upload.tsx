@@ -109,6 +109,33 @@ const Upload: React.FC = () => {
         throw new Error('Please connect your wallet first. Your wallet will sign the transaction.');
       }
 
+      // CHECK 3: Verify MetaMask account matches logged-in user
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' }) as string[];
+      if (accounts && accounts.length > 0 && accounts[0].toLowerCase() !== walletAddress.toLowerCase()) {
+        // AUTO-FIX: Offer to update profile
+        const shouldUpdate = window.confirm(
+          `Wallet Mismatch Details:\n\n` +
+          `• Profile Wallet: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} (Original)\n` +
+          `• MetaMask Wallet: ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)} (Active)\n\n` +
+          `Do you want to UPDATE your "Archis" profile to link this new MetaMask wallet instead?`
+        );
+
+        if (shouldUpdate && user) {
+          try {
+            await user.update({
+              unsafeMetadata: { ...user.unsafeMetadata, walletAddress: accounts[0] }
+            });
+            alert('Profile updated to new wallet! Refreshing...');
+            window.location.reload();
+            return;
+          } catch (err: any) {
+            throw new Error(`Failed to update wallet: ${err.message}`);
+          }
+        }
+
+        throw new Error(`Wallet Mismatch! Please switch MetaMask to ${walletAddress} or update your profile.`);
+      }
+
       // Prepare username for display
       let username = 'Creator';
       if (user?.firstName || user?.lastName) {

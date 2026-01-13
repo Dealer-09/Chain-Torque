@@ -119,12 +119,19 @@ class EventListener {
             // Try to resolve username from DB
             let creatorName = 'Creator';
             try {
+                // Use findByWallet or manual lowercasing - findByWallet is static on User model
                 const user = await User.findOne({ walletAddress: seller.toLowerCase() });
-                if (user && (user.username || user.name)) {
-                    creatorName = user.username || user.name;
+                if (user) {
+                    // Prioritize displayName, then username
+                    // CRITICAL: NEVER return raw wallet address as name. Default to 'Creator' if no profile name.
+                    creatorName = user.displayName || user.username || 'Creator';
+                    // console.log(`[EventListener] Resolved creator for #${tokenId}: ${creatorName} (${seller})`);
+                } else {
+                    // console.log(`[EventListener] No user profile found for seller ${seller}. Using default 'Creator'.`);
                 }
             } catch (e) {
-                // Ignore lookup error
+                console.warn(`[EventListener] Failed to resolve username for ${seller}: ${e.message}`);
+                // Ignore lookup error, keep default
             }
 
             const newItem = new MarketItem({
