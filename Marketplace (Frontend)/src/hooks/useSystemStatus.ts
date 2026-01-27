@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface SystemStatus {
   backend: string;
@@ -8,12 +8,16 @@ interface SystemStatus {
   marketplaceItems: number;
 }
 
-// Detect production vs development
-const getBackendUrl = () => {
+// Backend URLs for fallback support
+const PRIMARY_BACKEND_URL = 'https://chaintorque-backend.onrender.com';
+const FALLBACK_BACKEND_URL = 'https://chain-torque-backend.onrender.com';
+
+// Detect production vs development with fallback support
+const getBackendUrl = (useFallback: boolean = false) => {
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:5001';
   }
-  return 'https://chaintorque-backend.onrender.com';
+  return useFallback ? FALLBACK_BACKEND_URL : PRIMARY_BACKEND_URL;
 };
 
 export const useSystemStatus = () => {
@@ -26,7 +30,8 @@ export const useSystemStatus = () => {
   });
 
   const [isLoading, setIsLoading] = useState(true);
-  const backendUrl = getBackendUrl();
+  const usingFallback = useRef(false);
+  const backendUrl = getBackendUrl(usingFallback.current);
 
   const checkBackend = async () => {
     setIsLoading(true);

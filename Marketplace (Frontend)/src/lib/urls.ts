@@ -1,9 +1,29 @@
 // Shared URL utilities for consistent production/development detection
 
+// Backend URLs for fallback support
+const PRIMARY_BACKEND_URL = 'https://chaintorque-backend.onrender.com';
+const FALLBACK_BACKEND_URL = 'https://chain-torque-backend.onrender.com';
+
+// Track active backend URL (exported for fallback switching)
+export let activeBackendUrl: string | null = null;
+
+/**
+ * Switch to fallback backend URL
+ */
+export const switchToFallbackBackend = () => {
+    if (activeBackendUrl !== FALLBACK_BACKEND_URL) {
+        console.log('🔄 Switching to fallback backend:', FALLBACK_BACKEND_URL);
+        activeBackendUrl = FALLBACK_BACKEND_URL;
+    }
+};
+
 /**
  * Get the backend API base URL based on current environment
  */
 export const getBackendUrl = (): string => {
+    // If we've already determined a working URL, use it
+    if (activeBackendUrl) return activeBackendUrl;
+
     // 1. Environment variable takes priority
     if (import.meta.env.VITE_API_URL) {
         // Remove /api suffix if present for base URL
@@ -14,8 +34,8 @@ export const getBackendUrl = (): string => {
         (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
         return 'http://localhost:5001';
     }
-    // 3. Production Render backend
-    return 'https://chaintorque-backend.onrender.com';
+    // 3. Production Render backend (primary)
+    return PRIMARY_BACKEND_URL;
 };
 
 /**

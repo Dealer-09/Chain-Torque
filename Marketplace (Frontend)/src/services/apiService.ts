@@ -38,8 +38,18 @@ export interface MarketplaceItem {
   format?: string;
 }
 
+// Backend URLs for fallback support
+const PRIMARY_API_URL = 'https://chaintorque-backend.onrender.com/api';
+const FALLBACK_API_URL = 'https://chain-torque-backend.onrender.com/api';
+
+// Track which backend is currently active
+let activeApiUrl: string | null = null;
+
 // Use environment variable, or detect production vs development
 const getApiBaseUrl = () => {
+  // If we've already determined a working URL, use it
+  if (activeApiUrl) return activeApiUrl;
+
   // 1. Environment variable takes priority
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
@@ -48,11 +58,19 @@ const getApiBaseUrl = () => {
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:5001/api';
   }
-  // 3. Otherwise, use production Render backend
-  return 'https://chaintorque-backend.onrender.com/api';
+  // 3. Otherwise, use production Render backend (primary)
+  return PRIMARY_API_URL;
 };
 
 const API_BASE_URL = getApiBaseUrl();
+
+// Helper to switch to fallback URL
+const switchToFallback = () => {
+  if (activeApiUrl !== FALLBACK_API_URL) {
+    console.log('🔄 Switching to fallback backend:', FALLBACK_API_URL);
+    activeApiUrl = FALLBACK_API_URL;
+  }
+};
 
 class ApiService {
   public baseUrl: string;
@@ -61,9 +79,9 @@ class ApiService {
     this.baseUrl = API_BASE_URL;
   }
 
-  // Helper method for making requests
+  // Helper method for making requests with automatic fallback
   async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-    const url = `${this.baseUrl}${endpoint}`;
+    let url = `${activeApiUrl || this.baseUrl}${endpoint}`;
     // Log removed for security/cleanliness
 
 
@@ -83,6 +101,20 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
+
+      // If server error (5xx) and we're on primary, try fallback
+      if (response.status >= 500 && activeApiUrl !== FALLBACK_API_URL) {
+        switchToFallback();
+        this.baseUrl = FALLBACK_API_URL;
+        url = `${FALLBACK_API_URL}${endpoint}`;
+        const fallbackResponse = await fetch(url, config);
+        const data = await fallbackResponse.json();
+        if (!fallbackResponse.ok) {
+          throw new Error(data.error || data.message || `HTTP error! status: ${fallbackResponse.status}`);
+        }
+        return data;
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -91,6 +123,23 @@ class ApiService {
 
       return data;
     } catch (error: any) {
+      // On connection error, try fallback if not already using it
+      if (activeApiUrl !== FALLBACK_API_URL && (error.name === 'TypeError' || error.message?.includes('fetch'))) {
+        switchToFallback();
+        this.baseUrl = FALLBACK_API_URL;
+        try {
+          url = `${FALLBACK_API_URL}${endpoint}`;
+          const fallbackResponse = await fetch(url, config);
+          const data = await fallbackResponse.json();
+          if (!fallbackResponse.ok) {
+            throw new Error(data.error || data.message || `HTTP error! status: ${fallbackResponse.status}`);
+          }
+          return data;
+        } catch (fallbackError: any) {
+          console.error(`❌ Fallback API request also failed for ${endpoint}:`, fallbackError);
+        }
+      }
+
       console.error(`❌ API request failed for ${endpoint}:`, error);
       // Return a consistent error structure even if fetch fails
       return {
