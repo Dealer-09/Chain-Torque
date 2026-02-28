@@ -46,7 +46,7 @@ const FeatureTree = ({ features, onFeatureToggle, onFeatureDelete, onFeatureSele
                     <>
                       {`${feature.points?.length || 0} points`}
                       {feature.arcEdges?.length > 0 && (
-                        <span className="arc-info" style={{ color: '#60a5fa', marginLeft: '4px' }}>
+                        <span className="arc-info" style={{ color: 'hsl(217.9 10.6% 64.9%)', marginLeft: '4px' }}>
                           🌙 {feature.arcEdges.length} arc{feature.arcEdges.length > 1 ? 's' : ''}
                         </span>
                       )}
@@ -54,7 +54,7 @@ const FeatureTree = ({ features, onFeatureToggle, onFeatureDelete, onFeatureSele
                         <span className="cut-warning"> ⚠️ {feature.cutEdges.length} cut</span>
                       )}
                       {feature.cutEdges?.length === 0 && feature.arcEdges?.length > 0 && (
-                        <span style={{ color: '#4ade80', marginLeft: '4px' }}> ✓ closed</span>
+                        <span style={{ color: 'hsl(210 20% 98%)', marginLeft: '4px' }}> ✓ closed</span>
                       )}
                     </>
                   )}

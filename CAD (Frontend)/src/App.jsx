@@ -22,9 +22,11 @@ import {
   FaEraser,
   FaDotCircle,
   FaWaveSquare,
+  FaCloudUploadAlt,
 } from "react-icons/fa";
 import ViewportManager from "./components/ViewportManager.jsx";
 import FeatureTree from "./components/FeatureTree.jsx";
+import UploadToMarketplaceModal from "./components/UploadToMarketplaceModal.jsx";
 import CADOperations from "./components/CADOperations.jsx";
 import ImageTo3D from "./components/ImageTo3D.jsx";
 import { FaMagic } from "react-icons/fa";
@@ -33,6 +35,7 @@ import "./App.css";
 const App = () => {
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [showImageTo3D, setShowImageTo3D] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [activeTool, setActiveTool] = useState('select');
   const [activeView, setActiveView] = useState('iso');
@@ -631,6 +634,11 @@ const App = () => {
             onClick={() => setShowImageTo3D(true)}
             style={{ cursor: 'pointer', color: showImageTo3D ? '#4facfe' : 'inherit' }}
           />
+          <FaCloudUploadAlt
+            title="Upload to Marketplace"
+            onClick={() => setShowUploadModal(true)}
+            style={{ cursor: 'pointer', color: '#4facfe', fontSize: '18px' }}
+          />
           <FaCog title="Settings" />
         </div>
       </div>
@@ -868,6 +876,15 @@ const App = () => {
           </div>
         </div>
       </div>
+
+      {/* Upload to Marketplace Modal */}
+      {showUploadModal && (
+        <UploadToMarketplaceModal
+          features={features}
+          projectName={projectName}
+          onClose={() => setShowUploadModal(false)}
+        />
+      )}
 
       {/* Image to 3D AI Modal */}
       {showImageTo3D && (

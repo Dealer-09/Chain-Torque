@@ -453,6 +453,7 @@ const ThreeViewer = forwardRef((props, ref) => {
       <Canvas
         camera={{ position: [8, 8, 8], fov: 75, near: 0.1, far: 1000 }}
         shadows
+        gl={{ preserveDrawingBuffer: true }}
         style={{ background: 'linear-gradient(to bottom, #2d2d2d 0%, #1a1a1a 100%)' }}
       >
         <Suspense fallback={<LoadingSpinner />}>
