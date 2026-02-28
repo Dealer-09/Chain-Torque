@@ -1,8 +1,8 @@
 {
-  "ChainTorqueMarketplace": "0x9685Ac9d1d63C1442161e64A7A325Eaa7a505F00",
-  "deploymentTransaction": "0xb300c914748551241ed9addeb03578d68cb3fa1115740970c121b0652abb2a5d",
+  "ChainTorqueMarketplace": "0x82b71CF1EdA2BfF3EdA3Dad5B325cd544E129A7e",
+  "deploymentTransaction": "0x7c061adac54c9f97e49f6b25bfd14d0cd35c42d95d3c48be7435c4bf64669fe2",
   "network": "sepolia",
   "chainId": 11155111,
   "listingPrice": "0.00025",
-  "deployedAt": "2026-01-12T07:38:40.684Z"
+  "deployedAt": "2026-02-28T20:13:40.139Z"
 }
