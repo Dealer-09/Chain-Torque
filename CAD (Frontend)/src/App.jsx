@@ -38,6 +38,7 @@ const App = () => {
   const [activeView, setActiveView] = useState('iso');
   const [viewMode, setViewMode] = useState('2d'); // 2D sketch or 3D model
   const [features, setFeatures] = useState([]);
+  const [sketches, setSketches] = useState([]); // Hoisted from ViewportManager for operations
   const [selectedFeature, setSelectedFeature] = useState(null);
   const viewportRef = useRef();
 
@@ -47,6 +48,19 @@ const App = () => {
   // Model loading state
   const [modelUrl, setModelUrl] = useState(null);
   const [modelInfo, setModelInfo] = useState(null);
+
+  // Torquy AI Chat State
+  const [aiInput, setAiInput] = useState('');
+  const [aiIsLoading, setAiIsLoading] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    {
+      role: 'ai',
+      text: `Hello! I'm Torquy, your AI CAD assistant. I can handle commands like:
+- "Create a red cube with size 20"
+- "Add a blue cylinder"
+- "Give me a large sphere"`
+    }
+  ]);
 
   // Parse URL params on mount
   useEffect(() => {
@@ -65,6 +79,27 @@ const App = () => {
 
     if (title) {
       setProjectName(decodeURIComponent(title));
+    }
+
+    // Attempt to load from localStorage
+    try {
+      const savedProject = localStorage.getItem('chainTorqueCADProject');
+      if (savedProject) {
+        const parsedData = JSON.parse(savedProject);
+        if (parsedData.projectName) setProjectName(parsedData.projectName);
+        if (parsedData.features) setFeatures(parsedData.features);
+        if (parsedData.modelUrl) setModelUrl(parsedData.modelUrl);
+        if (parsedData.chatMessages) setChatMessages(parsedData.chatMessages);
+
+        // Wait briefly for ViewportManager ref to mount, then load its specific data
+        setTimeout(() => {
+          if (viewportRef.current?.loadProjectData) {
+            viewportRef.current.loadProjectData(parsedData);
+          }
+        }, 100);
+      }
+    } catch (err) {
+      console.error('Failed to parse local project save:', err);
     }
   }, []);
 
@@ -174,6 +209,139 @@ const App = () => {
     // TODO: Implement with actual geometry operations
   };
 
+  // Submit AI Command to Torquy (Groq)
+  const handleAICommand = async () => {
+    if (!aiInput.trim() || aiIsLoading) return;
+
+    const userMsg = aiInput;
+    setChatMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    setAiInput('');
+    setAiIsLoading(true);
+
+    try {
+      // For local development or Render prod
+      const backendUrl = import.meta.env.VITE_API_URL
+        ? import.meta.env.VITE_API_URL.replace('/api', '')
+        : 'http://localhost:5001';
+
+      // Gather contextual workspace
+      let workspaceContext = [];
+      if (viewportRef.current?.getProjectData) {
+        workspaceContext = viewportRef.current.getProjectData().sketches || [];
+      }
+
+      const res = await fetch(`${backendUrl}/api/ai/torquy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: userMsg,
+          chatHistory: chatMessages,
+          workspaceParams: { sketches: workspaceContext }
+        })
+      });
+
+      // Prevent SyntaxError if backend unexpectedly returns an HTML error page (e.g. 404 Not Found)
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('text/html')) {
+        const textText = await res.text();
+        console.error('Expected JSON, received HTML:', textText);
+        throw new Error('Server returned HTML instead of JSON. The backend AI endpoint might be down or not found.');
+      }
+
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'API failed');
+
+      setChatMessages(prev => [...prev, {
+        role: 'ai',
+        text: data.reply,
+        plan: data.plan || []
+      }]);
+
+      // 1) If we got 2D Sketches back, load them into the workspace
+      if (data.sketches && data.sketches.length > 0 && viewportRef.current?.loadProjectData) {
+        // Append them to the existing ones
+        let currentSketches = [];
+        if (viewportRef.current?.getProjectData) {
+          currentSketches = viewportRef.current.getProjectData().sketches || [];
+        }
+
+        // Give new sketches an ID and default visibility
+        const incomingSketches = data.sketches.map((s, idx) => ({
+          id: `torquy_sketch_${Date.now()}_${idx}`,
+          visible: true,
+          ...s
+        }));
+
+        viewportRef.current.loadProjectData({ sketches: [...currentSketches, ...incomingSketches] });
+        setViewMode('2d'); // Hop into sketch view to see them
+      }
+
+      // 2) If we got 3D shapes back, generate them and add to features
+      if (data.shapes && data.shapes.length > 0) {
+        const THREE = await import('three');
+        const newFeatures = data.shapes.map((shape, idx) => {
+          let geometry;
+          const p = shape.parameters || {};
+
+          switch (shape.type) {
+            case 'cube':
+              geometry = new THREE.BoxGeometry(p.width || 10, p.height || 10, p.depth || 10);
+              break;
+            case 'sphere':
+              geometry = new THREE.SphereGeometry(p.radius || 10, 32, 32);
+              break;
+            case 'cylinder':
+              geometry = new THREE.CylinderGeometry(p.radiusTop || 5, p.radiusBottom || 5, p.height || 10, 32);
+              break;
+            case 'cone':
+              geometry = new THREE.ConeGeometry(p.radius || 5, p.height || 10, 32);
+              break;
+            default:
+              geometry = new THREE.BoxGeometry(10, 10, 10);
+          }
+
+          // Apply rotation if any (in radians)
+          if (shape.rotation) {
+            geometry.rotateX(shape.rotation.x || 0);
+            geometry.rotateY(shape.rotation.y || 0);
+            geometry.rotateZ(shape.rotation.z || 0);
+          }
+
+          // Apply translation
+          const pos = shape.position || { x: 0, y: 0, z: 0 };
+          geometry.translate(pos.x, pos.y, pos.z);
+
+          // Extract attributes required by ViewportManager (vertices, indices, normals)
+          return {
+            id: `torquy_${Date.now()}_${idx}`,
+            type: '3d-solid',
+            name: `AI generated ${shape.type}`,
+            source: 'torquy-primitive',
+            meshData: {
+              vertices: geometry.attributes.position.array,
+              normals: geometry.attributes.normal.array,
+              indices: geometry.index ? geometry.index.array : null
+            },
+            color: shape.color || '#4ecdc4',
+            visible: true
+          };
+        });
+
+        // Add them to the global features so they render
+        setFeatures(prev => [...prev, ...newFeatures]);
+
+        // Ensure we are in 3D mode to view them
+        setViewMode('3d');
+      }
+
+    } catch (err) {
+      console.error(err);
+      setChatMessages(prev => [...prev, { role: 'ai', text: `❌ Error: ${err.message}` }]);
+    } finally {
+      setAiIsLoading(false);
+    }
+  };
+
   // View control functions - only called in 3D mode
   const handleViewChange = (view) => {
     setActiveView(view);
@@ -199,35 +367,59 @@ const App = () => {
 
   // Save Project
   const handleSave = () => {
-    const name = prompt('Enter project name:', projectName);
-    if (!name) return;
+    try {
+      let viewportData = { sketches: [] };
+      if (viewportRef.current?.getProjectData) {
+        viewportData = viewportRef.current.getProjectData();
+      }
 
-    setProjectName(name);
-    const projectData = {
-      name,
-      features: features.map(f => {
-        // meshData contains Float32Arrays which can't be directly JSON serialized
-        // Store as regular arrays for serialization
-        if (f.meshData) {
+      const projectData = {
+        projectName,
+        features: features.map(f => {
+          if (f.meshData && f.meshData.vertices) {
+            return {
+              ...f,
+              meshData: {
+                vertices: Array.from(f.meshData.vertices),
+                normals: Array.from(f.meshData.normals),
+                indices: f.meshData.indices ? Array.from(f.meshData.indices) : null
+              }
+            };
+          }
+          return f;
+        }),
+        sketches: viewportData.sketches,
+        modelUrl,
+        chatMessages,
+        savedAt: new Date().toISOString()
+      };
+
+      localStorage.setItem('chainTorqueCADProject', JSON.stringify(projectData));
+      alert(`Project "${projectName}" saved locally!`);
+    } catch (err) {
+      console.error('Failed to save project:', err);
+      alert('Failed to save project: ' + err.message);
+    }
+  };
+
+  // Convert features buffer arrays back to TypedArrays after loading
+  useEffect(() => {
+    if (features.length > 0 && features.some(f => Array.isArray(f.meshData?.vertices))) {
+      setFeatures(prev => prev.map(f => {
+        if (f.meshData && Array.isArray(f.meshData.vertices)) {
           return {
             ...f,
             meshData: {
-              vertices: Array.from(f.meshData.vertices),
-              indices: Array.from(f.meshData.indices),
-              normals: Array.from(f.meshData.normals)
+              vertices: new Float32Array(f.meshData.vertices),
+              normals: new Float32Array(f.meshData.normals),
+              indices: f.meshData.indices ? new Uint32Array(f.meshData.indices) : null
             }
           };
         }
         return f;
-      }),
-      viewMode,
-      modelUrl,
-      savedAt: new Date().toISOString()
-    };
-
-    localStorage.setItem(`cad_project_${name}`, JSON.stringify(projectData));
-    alert(`Project "${name}" saved successfully!`);
-  };
+      }));
+    }
+  }, [features]);
 
   // Download Project as STL or GLB
   const handleDownload = async () => {
@@ -545,6 +737,7 @@ const App = () => {
               onModelCaptured={handleModelCaptured}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
+              onSketchesChange={setSketches}
             />
           </div>
         </div>
@@ -581,7 +774,7 @@ const App = () => {
               onFeatureSelect={handleFeatureSelect}
             />
             <CADOperations
-              sketches={features.filter(f => f.type === 'polygon' || f.type === 'lines')}
+              sketches={sketches}
               onExtrudeComplete={(extrudedGeometry) => {
                 // Add extruded geometry to features
                 setFeatures(prev => [...prev, {
@@ -607,30 +800,42 @@ const App = () => {
         </div>
         <div className="ai-chat">
           <div className="chat-messages">
-            <div className="ai-message">
-              <strong>🤖 Torquy:</strong><br />
-              Hello! I'm Torquy, your CAD assistant. I can help you with:
-              <ul>
-                <li>"Create a 10mm hole here"</li>
-                <li>"Add 2mm fillet to all edges"</li>
-                <li>"Extrude this face 50mm"</li>
-                <li>"Change material to aluminum"</li>
-                <li>"Mirror this part across X-axis"</li>
-              </ul>
-              Currently viewing: 3D sample objects
-            </div>
+            {chatMessages.map((msg, idx) => (
+              <div key={idx} className={msg.role === 'ai' ? 'ai-message' : 'user-message'}>
+                <strong>{msg.role === 'ai' ? '🤖 Torquy' : '👤 You'}:</strong><br />
+                <span>{msg.text}</span>
+                {msg.plan && msg.plan.length > 0 && (
+                  <ul className="ai-plan-list" style={{ marginTop: '8px', paddingLeft: '20px', color: 'rgba(255,255,255,0.8)' }}>
+                    {msg.plan.map((step, stepIdx) => (
+                      <li key={stepIdx} style={{ marginBottom: '4px', fontStyle: 'italic', fontSize: '12px' }}>{step}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+            {aiIsLoading && (
+              <div className="ai-message typing-indicator">
+                <em>Torquy is thinking...</em>
+              </div>
+            )}
           </div>
           <div className="chat-input">
             <input
               type="text"
-              placeholder="Ask me to edit your model..."
+              value={aiInput}
+              onChange={(e) => setAiInput(e.target.value)}
+              placeholder="E.g. Create a red sphere..."
               onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  // TODO: Handle AI command input
-                }
+                if (e.key === 'Enter') handleAICommand()
               }}
+              disabled={aiIsLoading}
             />
-            <button>Send</button>
+            <button
+              onClick={handleAICommand}
+              disabled={aiIsLoading || !aiInput.trim()}
+            >
+              Send
+            </button>
           </div>
         </div>
       </div>

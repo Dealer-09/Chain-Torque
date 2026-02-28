@@ -108,4 +108,114 @@ router.post('/generate-3d', upload.single('image'), async (req, res) => {
     }
 });
 
+const { Groq } = require('groq-sdk');
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+/**
+ * @route POST /api/ai/torquy
+ * @desc Process CAD commands via Torquy AI and return JSON shapes and 2D sketches
+ */
+router.post('/torquy', async (req, res) => {
+    try {
+        const { prompt, chatHistory = [], workspaceParams = {} } = req.body;
+        if (!prompt) {
+            return res.status(400).json({ success: false, message: 'No prompt provided' });
+        }
+
+        const systemPrompt = `You are Torquy, an advanced CAD geometry assistant and mechanical engineer. Convert the user's natural language request into a strictly formatted JSON object.
+You possess the ability to spawn full 3D meshes (shapes) OR 2D drawings (sketches). 
+If the user wants to draw a flat profile, sketch, or polygon to extrude later, YOU MUST use the "sketches" array.
+If the user wants a primitive 3D solid or an engineering model, use the "shapes" array.
+CRITICAL RULE 1: Sizing and placement MUST be highly precise and spatially coherent (like actual CAD dimensions).
+CRITICAL RULE 2: You MUST assign each distinct shape a UNIQUE, appropriate, engineering-grade HEX color representing materials (like steel gray #B0C4DE, brass #B5A642, dark chrome #2d2d2d, bright red paint #E32636, etc). NEVER make the entire assembly a single color unless explicitly asked.
+
+Current Workspace Context:
+The user currently has ${workspaceParams.sketches?.length || 0} sketches drawn on their board.
+
+Your response MUST be ONLY valid JSON matching this exact schema:
+{
+  "reply": "Here is the 2D sketch you requested.",
+  "plan": [
+    "Step 1: Describe the first part you are building",
+    "Step 2: Describe the next part",
+    "Step 3: ...etc"
+  ],
+  "sketches": [
+    {
+      "type": "polygon|circle",
+      "points": [{"x": number, "y": number}], // ONLY FOR POLYGONS
+      "center": {"x": number, "y": number}, // ONLY FOR CIRCLES
+      "radius": number // ONLY FOR CIRCLES
+    }
+  ],
+  "shapes": [
+    {
+      "type": "cube|sphere|cylinder|cone|plane",
+      "parameters": {
+        "width": number, "height": number, "depth": number,
+        "radius": number, "radiusTop": number, "radiusBottom": number
+      },
+      "position": { "x": number, "y": number, "z": number },
+      "rotation": { "x": number, "y": number, "z": number },
+      "color": "UNIQUE hex string representing a distinct engineering material color (DO NOT default to a single color)"
+    }
+  ]
+}
+
+Only output valid JSON, with absolutely no markdown wrapping, thinking text, or explanations.`;
+
+        // Format history for Groq
+        const messages = [
+            { role: 'system', content: systemPrompt }
+        ];
+
+        // Append recent contextual history
+        const recentHistory = chatHistory.slice(-6); // Keep last 6 messages
+        recentHistory.forEach(msg => {
+            if (msg.role && msg.text) {
+                // Ensure role is exactly 'user' or 'assistant'
+                messages.push({
+                    role: msg.role === 'ai' ? 'assistant' : 'user',
+                    content: msg.text
+                });
+            }
+        });
+
+        // Add the current prompt
+        messages.push({ role: 'user', content: prompt });
+
+        const completion = await groq.chat.completions.create({
+            messages: messages,
+            model: 'llama-3.1-8b-instant',
+            temperature: 0.1,
+            response_format: { type: "json_object" }
+        });
+
+        const aiResponse = completion.choices[0]?.message?.content;
+        let parsedResult;
+        try {
+            parsedResult = JSON.parse(aiResponse);
+        } catch (e) {
+            console.error('[AI] Torquy failed to return valid JSON:', aiResponse);
+            throw new Error('AI returned invalid JSON');
+        }
+
+        res.json({
+            success: true,
+            reply: parsedResult.reply || "Done.",
+            plan: parsedResult.plan || [],
+            shapes: parsedResult.shapes || [],
+            sketches: parsedResult.sketches || []
+        });
+
+    } catch (error) {
+        console.error('[AI] Torquy Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to process AI command',
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;

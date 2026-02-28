@@ -1027,8 +1027,8 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
   };
 
   const handleWheel = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    // The passive React event listener is forbidden from calling e.preventDefault()
+    // It is handled gracefully by nativeEventListeners below!
     const delta = e.deltaY * -0.001;
     const newZoom = Math.min(Math.max(0.1, zoom + delta), 5);
     setZoom(newZoom);
@@ -1040,10 +1040,9 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
     const container = containerRef.current;
 
     const preventBrowserZoom = (e) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      // Unconditionally stop native scroll & zoom from propagating against the 2D canvas zooming capability
+      e.preventDefault();
+      e.stopPropagation();
     };
 
     if (canvas) {
@@ -1610,7 +1609,8 @@ const ViewportManager = forwardRef(({
   onModelLoad,
   onModelCaptured,
   viewMode: viewModeProp,
-  onViewModeChange
+  onViewModeChange,
+  onSketchesChange
 }, ref) => {
   // Use prop viewMode if provided, otherwise fallback to local state
   const [localViewMode, setLocalViewMode] = useState(modelUrl ? '3d' : '2d');
@@ -1619,6 +1619,12 @@ const ViewportManager = forwardRef(({
 
   const [sketches, setSketches] = useState([]);
 
+  // Report sketches to parent App component
+  useEffect(() => {
+    if (onSketchesChange) {
+      onSketchesChange(sketches);
+    }
+  }, [sketches, onSketchesChange]);
 
   const [activeSketch, setActiveSketch] = useState(null);
   const [zoom, setZoom] = useState(1); // Zoom for 2D canvas
@@ -1667,6 +1673,14 @@ const ViewportManager = forwardRef(({
       setSketches(prev => prev.map(s =>
         s.id === sketchId ? { ...s, visible: !s.visible } : s
       ));
+    },
+    getProjectData: () => {
+      return { sketches };
+    },
+    loadProjectData: (data) => {
+      if (data && Array.isArray(data.sketches)) {
+        setSketches(data.sketches);
+      }
     }
   }));
 

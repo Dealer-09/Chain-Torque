@@ -320,26 +320,28 @@ html,
   margin: 8px 0;
 }
 
-/* AI Panel - Floating Overlay */
+/* AI Panel - Floating Overlay (Premium Glass Dark Mode) */
 .ai-panel-floating {
   position: fixed;
   top: 60px;
   right: 20px;
-  width: 380px;
-  height: 500px;
-  background: linear-gradient(180deg, hsl(224 71.4% 4.1%), hsl(215 27.9% 16.9%));
-  border: 1px solid hsl(240 3.7% 15.9%);
-  border-radius: 12px;
+  width: 400px;
+  height: 550px;
+  background: rgba(15, 15, 18, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 25px 50px -12px hsl(0 0% 0% / 0.5);
+  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   z-index: 1000;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(10px);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  overflow: hidden;
 }
 
 .ai-panel-floating.hidden {
-  transform: translateX(420px) scale(0.95);
+  transform: translateX(450px) scale(0.95);
   opacity: 0;
   pointer-events: none;
 }
@@ -353,112 +355,161 @@ html,
 .ai-panel-floating .ai-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, hsl(217 91% 65%), hsl(259 94% 65%));
-  color: hsl(0 0% 100%);
-  font-weight: bold;
+  gap: 12px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  font-weight: 600;
+  letter-spacing: 0.5px;
   position: relative;
-  border-radius: 12px 12px 0 0;
-  box-shadow: 0 4px 6px -1px hsl(0 0% 0% / 0.3);
 }
 
 .ai-panel-floating .close-btn {
   position: absolute;
-  right: 12px;
+  right: 16px;
   background: none;
   border: none;
-  color: white;
-  font-size: 18px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 20px;
   cursor: pointer;
   padding: 0;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .ai-panel-floating .close-btn:hover {
-  background: hsl(0 0% 0% / 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 .ai-panel-floating .ai-chat {
   flex: 1;
   display: flex;
   flex-direction: column;
-  border-radius: 0 0 12px 12px;
-  overflow: hidden;
+  min-height: 0;
 }
 
 .ai-panel-floating .chat-messages {
   flex: 1;
-  padding: 16px;
+  padding: 20px;
   overflow-y: auto;
-  max-height: 350px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
+/* Base style for all messages */
+.ai-panel-floating .ai-message,
+.ai-panel-floating .user-message {
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #eeeeee;
+  max-width: 90%;
+  animation: messageFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes messageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* User Message: Flushed Right, Glass Pill */
+.ai-panel-floating .user-message {
+  align-self: flex-end;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom-right-radius: 4px;
+}
+
+/* AI Message: Flushed Left, Clean text with subtle border */
 .ai-panel-floating .ai-message {
-  background: hsl(215 27.9% 16.9%);
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  border-left: 3px solid hsl(217 91% 65%);
+  align-self: flex-start;
+  background: transparent;
+  padding-left: 16px;
+  border-left: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0;
 }
 
-.ai-panel-floating .ai-message ul {
-  margin: 8px 0 0 0;
-  padding-left: 20px;
+.ai-panel-floating strong {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 6px;
 }
 
-.ai-panel-floating .ai-message li {
-  margin: 4px 0;
-  color: hsl(240 4.8% 95.9%);
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
+.ai-panel-floating .typing-indicator {
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .ai-panel-floating .chat-input {
   display: flex;
-  padding: 16px;
-  gap: 8px;
-  border-top: 1px solid hsl(240 3.7% 15.9%);
-  background: hsl(224 71.4% 4.1% / 0.8);
+  padding: 16px 20px;
+  gap: 12px;
+  background: rgba(10, 10, 12, 0.6);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .ai-panel-floating .chat-input input {
   flex: 1;
-  background: hsl(215 27.9% 16.9%);
-  border: 1px solid hsl(240 3.7% 15.9%);
-  color: hsl(210 20% 98%);
-  padding: 8px 12px;
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  padding: 12px 16px;
+  border-radius: 8px;
   font-size: 14px;
-  transition: border-color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .ai-panel-floating .chat-input input:focus {
   outline: none;
-  border-color: hsl(217 91% 65%);
-  box-shadow: 0 0 0 2px hsl(217 91% 65% / 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.ai-panel-floating .chat-input input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
 }
 
 .ai-panel-floating .chat-input button {
-  background: linear-gradient(135deg, hsl(217 91% 65%), hsl(259 94% 65%));
+  background: #ffffff;
+  color: #000000;
   border: none;
-  color: hsl(0 0% 100%);
-  padding: 8px 16px;
-  border-radius: 6px;
+  padding: 0 20px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.5px;
   transition: all 0.2s ease;
 }
 
-.ai-panel-floating .chat-input button:hover {
-  background: linear-gradient(135deg, hsl(217 91% 70%), hsl(259 94% 70%));
+.ai-panel-floating .chat-input button:hover:not(:disabled) {
+  background: #e0e0e0;
   transform: translateY(-1px);
+}
+
+.ai-panel-floating .chat-input button:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
+  cursor: not-allowed;
 }
 
 /* Remove old AI panel styles */

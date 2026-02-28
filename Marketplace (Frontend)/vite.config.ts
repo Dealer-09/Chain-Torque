@@ -22,6 +22,8 @@ export default defineConfig({
   optimizeDeps: {
     include: ['react', 'react-dom', '@clerk/clerk-react'],
   },
+  // Load .env from monorepo root (parent directory)
+  envDir: path.resolve(__dirname, '..'),
   // Better development experience
   define: {
     __DEV__: JSON.stringify(true),
