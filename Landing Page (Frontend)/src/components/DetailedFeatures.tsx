@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { Link } from 'react-router-dom'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
@@ -7,9 +8,9 @@ gsap.registerPlugin(ScrollTrigger)
 
 export default function DetailedFeatures() {
     const detailedFeatures = [
-        { icon: 'fa-cubes', title: 'Real-time 3D Previews', desc: 'Instantly visualize your CAD models online with zero lag.' },
-        { icon: 'fa-lock', title: 'Secure Uploads', desc: 'Military-grade encryption for all your proprietary designs.' },
-        { icon: 'fa-share-nodes', title: 'Easy Sharing', desc: 'Collaborate effortlessly with teammates across the globe.' },
+        { icon: 'fa-cubes', title: 'Real-time 3D Previews', desc: 'Instantly visualize your CAD models online with zero lag.', color: 'var(--accent-primary)' },
+        { icon: 'fa-lock', title: 'Secure Uploads', desc: 'Military-grade encryption for all your proprietary designs.', color: 'var(--accent-blue)' },
+        { icon: 'fa-share-nodes', title: 'Easy Sharing', desc: 'Collaborate effortlessly with teammates across the globe.', color: 'var(--accent-secondary)' },
     ]
 
     const imageRef = useRef<HTMLDivElement>(null)
@@ -56,6 +57,9 @@ export default function DetailedFeatures() {
                     viewport={{ once: true, margin: '-100px' }}
                     transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                 >
+                    <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--accent-primary)' }}>
+                        Platform Tools
+                    </p>
                     <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold mb-6 leading-tight" style={{ color: 'var(--text-primary)' }}>
                         Tools for the <br /><span className="text-gradient">Next Generation</span>
                     </h2>
@@ -65,17 +69,20 @@ export default function DetailedFeatures() {
                     </p>
 
                     <motion.div
-                        className="space-y-5"
+                        className="space-y-3"
                         variants={listVariants}
                         initial="hidden"
                         whileInView="visible"
                         viewport={{ once: true, margin: '-60px' }}
                     >
                         {detailedFeatures.map((f) => (
-                            <motion.div key={f.title} variants={itemVariants} className="flex gap-4 group">
-                                <div className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110"
-                                    style={{ background: 'rgba(0, 212, 255, 0.08)' }}>
-                                    <i className={`fas ${f.icon}`} style={{ color: 'var(--accent-cyan)' }} />
+                            <motion.div key={f.title} variants={itemVariants}
+                                className="card-bordered flex items-start gap-4 group"
+                                style={{ borderLeftColor: f.color }}
+                            >
+                                <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110"
+                                    style={{ background: `${f.color}15` }}>
+                                    <i className={`fas ${f.icon}`} style={{ color: f.color }} />
                                 </div>
                                 <div>
                                     <h4 className="font-heading font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{f.title}</h4>
@@ -86,14 +93,15 @@ export default function DetailedFeatures() {
                     </motion.div>
 
                     <div className="mt-10 flex flex-wrap gap-3">
-                        <motion.a
-                            href="#"
-                            className="btn-primary"
-                            whileHover={{ scale: 1.04, y: -2 }}
-                            whileTap={{ scale: 0.97 }}
-                        >
-                            Start Free Trial
-                        </motion.a>
+                        <Link to="/sign-up">
+                            <motion.span
+                                className="btn-primary"
+                                whileHover={{ scale: 1.04, y: -2 }}
+                                whileTap={{ scale: 0.97 }}
+                            >
+                                Start Free Trial
+                            </motion.span>
+                        </Link>
                         <motion.a
                             href="#"
                             className="btn-secondary"
@@ -113,9 +121,8 @@ export default function DetailedFeatures() {
                     transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
                     className="relative"
                 >
-                    <div className="absolute -inset-10 rounded-full blur-[100px] pointer-events-none" style={{ background: 'rgba(0, 212, 255, 0.08)' }} />
-                    <div ref={imageRef} className="card !p-2 overflow-hidden">
-                        <img src="/images/img2.png" alt="CAD Platform Features" className="w-full rounded-xl" />
+                    <div ref={imageRef} className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-lg)' }}>
+                        <img src="/images/img2.png" alt="CAD Platform Features" className="w-full" />
                     </div>
                 </motion.div>
             </div>

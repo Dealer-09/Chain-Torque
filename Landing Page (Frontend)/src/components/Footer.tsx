@@ -51,7 +51,7 @@ export default function Footer() {
     ]
 
     return (
-        <footer className="footer-gradient-border py-10 mt-auto" style={{ background: 'var(--bg-secondary)' }}>
+        <footer className="footer-gradient-border py-10 mt-auto" style={{ background: 'var(--bg-dark-section)', color: '#9298a8' }}>
             <div className="max-w-6xl mx-auto px-6">
                 <motion.div
                     className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6"
@@ -65,7 +65,7 @@ export default function Footer() {
                         <a href="/" className="text-lg font-heading font-bold text-gradient">
                             ChainTorque
                         </a>
-                        <p className="mt-1.5 text-xs max-w-xs" style={{ color: 'var(--text-muted)' }}>
+                        <p className="mt-1.5 text-xs max-w-xs" style={{ color: '#5d6478' }}>
                             The Web3 marketplace for 3D CAD models.
                         </p>
                     </motion.div>
@@ -76,8 +76,8 @@ export default function Footer() {
                             <motion.a
                                 key={link}
                                 href={link === 'Home' ? '/' : link === 'Features' ? '#features' : '#'}
-                                className="text-sm transition-colors hover:opacity-80"
-                                style={{ color: 'var(--text-muted)' }}
+                                className="text-sm transition-colors hover:text-white"
+                                style={{ color: '#5d6478' }}
                                 variants={itemVariants}
                                 whileHover={{ y: -1 }}
                             >
@@ -94,11 +94,11 @@ export default function Footer() {
                                 href={s.href}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="transition-colors"
-                                style={{ color: 'var(--text-muted)' }}
+                                className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200"
+                                style={{ color: '#5d6478', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.06)' }}
                                 aria-label={s.label}
                                 variants={itemVariants}
-                                whileHover={{ y: -2, color: 'var(--accent-cyan)' }}
+                                whileHover={{ y: -2, color: '#14b8a6', borderColor: 'rgba(20, 184, 166, 0.3)' }}
                                 transition={{ duration: 0.2 }}
                             >
                                 {s.icon}
@@ -108,8 +108,8 @@ export default function Footer() {
                 </motion.div>
 
                 {/* Copyright */}
-                <div className="text-center pt-5" style={{ borderTop: '1px solid var(--card-border)' }}>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-center pt-5" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                    <p className="text-xs" style={{ color: '#5d6478' }}>
                         © 2025 ChainTorque. All rights reserved.
                     </p>
                 </div>

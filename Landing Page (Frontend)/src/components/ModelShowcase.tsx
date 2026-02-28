@@ -1,33 +1,7 @@
-import { useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
-
-gsap.registerPlugin(ScrollTrigger)
+import { Link } from 'react-router-dom'
 
 export default function ModelShowcase() {
-    const sectionRef = useRef<HTMLElement>(null)
-    const viewerRef = useRef<HTMLDivElement>(null)
-
-    // GSAP parallax on 3D viewer
-    useEffect(() => {
-        if (!viewerRef.current || !sectionRef.current) return
-
-        gsap.fromTo(
-            viewerRef.current,
-            { y: 60 },
-            {
-                y: -30,
-                ease: 'none',
-                scrollTrigger: {
-                    trigger: sectionRef.current,
-                    start: 'top bottom',
-                    end: 'bottom top',
-                    scrub: 1,
-                },
-            }
-        )
-    }, [])
 
     const textVariants = {
         hidden: {},
@@ -48,49 +22,47 @@ export default function ModelShowcase() {
     const features = [
         {
             icon: 'fa-vr-cardboard',
-            color: 'bg-cyan-500/15 text-cyan-400',
+            color: 'var(--accent-primary)',
             title: '360° Preview',
-            desc: 'Inspect every angle and detail',
+            desc: 'Inspect every angle and detail in real-time',
         },
         {
             icon: 'fa-shield-alt',
-            color: 'bg-purple-500/15 text-purple-400',
+            color: 'var(--accent-purple)',
             title: 'Blockchain Verification',
-            desc: 'True ownership on-chain',
+            desc: 'True ownership verified on-chain',
         },
     ]
 
     return (
-        <section ref={sectionRef} className="py-28 md:py-36 px-6 relative overflow-hidden section-mesh">
+        <section className="py-28 md:py-36 px-6 relative overflow-hidden section-warm">
             <div className="max-w-7xl mx-auto">
-                <div className="grid lg:grid-cols-2 gap-16 lg:gap-20 items-center">
+                <div className="grid lg:grid-cols-[1.2fr_1fr] gap-12 lg:gap-16 items-center">
                     {/* Left — 3D Viewer */}
                     <motion.div
-                        ref={viewerRef}
-                        className="lg:w-[90%] xl:w-[85%] lg:ml-auto"
+                        className="w-full"
                         initial={{ opacity: 0, x: -40 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true, margin: '-100px' }}
                         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                     >
                         <div className="relative group w-full">
-                            {/* Animated glowing background on hover */}
-                            <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500/30 to-blue-600/30 rounded-[1.25rem] blur-xl opacity-0 group-hover:opacity-100 transition duration-700 pointer-events-none" />
-                            
                             <div
-                                className="relative rounded-2xl overflow-hidden backdrop-blur-md transition-all duration-700 min-h-[400px] w-full"
+                                className="relative rounded-2xl overflow-hidden transition-all duration-700 min-h-[450px] w-full"
                                 style={{ 
-                                    aspectRatio: '4/3',
-                                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                                    background: 'rgba(10, 15, 30, 0.4)',
-                                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                                    aspectRatio: '16/11',
+                                    border: '1px solid var(--card-border)',
+                                    background: 'rgba(10, 15, 30, 0.5)',
+                                    boxShadow: 'var(--shadow-lg)'
                                 }}
                             >
                                 {/* Decorative top gradient line */}
-                                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent z-10" />
+                                <div className="absolute top-0 left-0 right-0 h-[2px] z-10"
+                                    style={{ background: 'linear-gradient(90deg, transparent, var(--accent-primary), var(--accent-blue), transparent)' }} />
                                 
                                 <iframe
                                     title="Engine"
+                                    loading="lazy"
                                     frameBorder="0"
                                     allowFullScreen
                                     allow="autoplay; fullscreen; xr-spatial-tracking"
@@ -114,9 +86,9 @@ export default function ModelShowcase() {
                         viewport={{ once: true, margin: '-100px' }}
                     >
                         <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider mb-6"
-                            style={{ background: 'rgba(0, 212, 255, 0.08)', border: '1px solid rgba(0, 212, 255, 0.15)', color: 'var(--accent-cyan)' }}>
+                            style={{ background: 'rgba(13, 148, 136, 0.08)', border: '1px solid rgba(13, 148, 136, 0.15)', color: 'var(--accent-primary)' }}>
                             <span className="relative flex h-2 w-2">
-                                <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: 'var(--accent-cyan)' }} />
+                                <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: 'var(--accent-primary)' }} />
                             </span>
                             Premium Experience
                         </motion.div>
@@ -130,33 +102,38 @@ export default function ModelShowcase() {
                             WebGL viewer.
                         </motion.p>
 
-                        <motion.div variants={itemVariants} className="grid sm:grid-cols-2 gap-4 mb-10">
+                        <motion.div variants={itemVariants} className="space-y-3 mb-10">
                             {features.map((f) => (
                                 <motion.div
                                     key={f.title}
-                                    className="card group cursor-default"
-                                    whileHover={{ y: -4 }}
+                                    className="card-bordered group cursor-default flex items-start gap-4"
+                                    whileHover={{ x: 4 }}
                                     transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                                    style={{ borderLeftColor: f.color }}
                                 >
-                                    <div className={`w-10 h-10 rounded-xl ${f.color} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300`}>
-                                        <i className={`fas ${f.icon}`} />
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300"
+                                        style={{ background: `${f.color}15` }}>
+                                        <i className={`fas ${f.icon}`} style={{ color: f.color }} />
                                     </div>
-                                    <h4 className="font-heading font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{f.title}</h4>
-                                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{f.desc}</p>
+                                    <div>
+                                        <h4 className="font-heading font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>{f.title}</h4>
+                                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{f.desc}</p>
+                                    </div>
                                 </motion.div>
                             ))}
                         </motion.div>
 
                         <motion.div variants={itemVariants}>
-                            <motion.a
-                                href="#"
-                                className="btn-primary inline-flex items-center gap-3"
-                                whileHover={{ scale: 1.04, y: -2 }}
-                                whileTap={{ scale: 0.97 }}
-                            >
-                                Join the Community
-                                <i className="fas fa-arrow-right" />
-                            </motion.a>
+                            <Link to="/sign-up">
+                                <motion.span
+                                    className="btn-primary inline-flex items-center gap-3"
+                                    whileHover={{ scale: 1.04, y: -2 }}
+                                    whileTap={{ scale: 0.97 }}
+                                >
+                                    Join the Community
+                                    <i className="fas fa-arrow-right" />
+                                </motion.span>
+                            </Link>
                         </motion.div>
                     </motion.div>
                 </div>

@@ -7,11 +7,11 @@ gsap.registerPlugin(ScrollTrigger)
 
 export default function HowItWorks() {
     const steps = [
-        { id: '01', title: 'Sign Up', desc: 'Create your unique profile', icon: 'fa-user-plus' },
-        { id: '02', title: 'Connect', desc: 'Link your Web3 wallet', icon: 'fa-wallet' },
-        { id: '03', title: 'Browse', desc: 'Explore the marketplace', icon: 'fa-compass' },
-        { id: '04', title: 'Upload', desc: 'Mint your 3D models', icon: 'fa-cloud-arrow-up' },
-        { id: '05', title: 'Trade', desc: 'Collaborate and earn', icon: 'fa-handshake' },
+        { id: '01', title: 'Sign Up', desc: 'Create your unique profile', icon: 'fa-user-plus', color: 'var(--accent-primary)' },
+        { id: '02', title: 'Connect', desc: 'Link your Web3 wallet', icon: 'fa-wallet', color: 'var(--accent-blue)' },
+        { id: '03', title: 'Browse', desc: 'Explore the marketplace', icon: 'fa-compass', color: 'var(--accent-purple)' },
+        { id: '04', title: 'Upload', desc: 'Mint your 3D models', icon: 'fa-cloud-arrow-up', color: 'var(--accent-secondary)' },
+        { id: '05', title: 'Trade', desc: 'Collaborate and earn', icon: 'fa-handshake', color: 'var(--accent-primary)' },
     ]
 
     const lineRef = useRef<HTMLDivElement>(null)
@@ -38,7 +38,7 @@ export default function HowItWorks() {
     }, [])
 
     return (
-        <section ref={sectionRef} className="py-28 md:py-36 px-6 relative" style={{ background: 'var(--bg-secondary)' }}>
+        <section ref={sectionRef} className="py-28 md:py-36 px-6 relative section-warm">
             <div className="max-w-6xl mx-auto">
                 <motion.div
                     className="text-center mb-20"
@@ -47,6 +47,9 @@ export default function HowItWorks() {
                     viewport={{ once: true, margin: '-80px' }}
                     transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 >
+                    <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--accent-primary)' }}>
+                        Getting Started
+                    </p>
                     <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
                         Your Journey <span className="text-gradient">Starts Here</span>
                     </h2>
@@ -74,10 +77,10 @@ export default function HowItWorks() {
                             >
                                 <motion.div
                                     className="step-circle mx-auto"
-                                    whileHover={{ scale: 1.1, borderColor: 'var(--accent-cyan)' }}
+                                    whileHover={{ scale: 1.1 }}
                                     transition={{ type: 'spring', stiffness: 300, damping: 15 }}
                                 >
-                                    <span className="text-lg font-heading font-bold text-gradient">{step.id}</span>
+                                    <i className={`fas ${step.icon} text-lg`} style={{ color: step.color }} />
                                 </motion.div>
                                 <h3 className="font-heading font-semibold text-base mb-1.5" style={{ color: 'var(--text-primary)' }}>
                                     {step.title}

@@ -16,13 +16,13 @@ export default function Hero() {
         const orbs = orbsRef.current.querySelectorAll('.hero-orb')
         orbs.forEach((orb, i) => {
             gsap.to(orb, {
-                x: `random(-60, 60)`,
-                y: `random(-60, 60)`,
-                duration: 4 + i * 1.5,
+                x: `random(-40, 40)`,
+                y: `random(-40, 40)`,
+                duration: 5 + i * 2,
                 repeat: -1,
                 yoyo: true,
                 ease: 'sine.inOut',
-                delay: i * 0.5,
+                delay: i * 0.8,
             })
         })
     }, [])
@@ -49,19 +49,19 @@ export default function Hero() {
 
     return (
         <section className="min-h-screen flex flex-col items-center justify-center text-center relative overflow-hidden px-4 pt-28 pb-24">
-            {/* Animated Background Orbs */}
+            {/* Subtle background orbs — toned down */}
             <div ref={orbsRef} className="absolute inset-0 z-0 overflow-hidden">
-                <div className="hero-orb bg-cyan-400/15 dark:bg-cyan-400/10 w-[500px] h-[500px]" style={{ top: '-10%', left: '10%' }} />
-                <div className="hero-orb bg-blue-500/10 dark:bg-blue-500/8 w-[400px] h-[400px]" style={{ top: '20%', right: '5%' }} />
-                <div className="hero-orb bg-purple-500/8 dark:bg-purple-500/6 w-[350px] h-[350px]" style={{ bottom: '5%', left: '30%' }} />
+                <div className="hero-orb w-[420px] h-[420px]" style={{ top: '-8%', left: '12%', background: 'rgba(13, 148, 136, 0.08)' }} />
+                <div className="hero-orb w-[350px] h-[350px]" style={{ top: '25%', right: '8%', background: 'rgba(59, 110, 246, 0.06)' }} />
+                <div className="hero-orb w-[300px] h-[300px]" style={{ bottom: '8%', left: '35%', background: 'rgba(212, 160, 83, 0.06)' }} />
             </div>
 
             {/* Dot grid pattern */}
-            <div className="absolute inset-0 z-0 section-dot-grid opacity-30 dark:opacity-10" />
+            <div className="absolute inset-0 z-0 section-dot-grid opacity-20 dark:opacity-[0.04]" />
 
             {/* Content */}
             <motion.div
-                className="relative z-10 max-w-5xl mx-auto"
+                className="relative z-10 max-w-4xl mx-auto"
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
@@ -74,10 +74,10 @@ export default function Hero() {
                     </div>
                 </motion.div>
 
-                {/* Heading */}
+                {/* Heading — tighter, more professional */}
                 <motion.h1
                     variants={itemVariants}
-                    className="text-5xl sm:text-6xl md:text-8xl font-heading font-bold mb-8 tracking-tight leading-[0.95]"
+                    className="text-5xl sm:text-6xl md:text-[5.5rem] font-heading font-bold mb-6 tracking-tight leading-[0.92]"
                     style={{ color: 'var(--text-primary)' }}
                 >
                     Build. Share.{' '}
@@ -88,11 +88,11 @@ export default function Hero() {
                 {/* Subtitle */}
                 <motion.p
                     variants={itemVariants}
-                    className="text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed"
+                    className="text-base md:text-lg max-w-xl mx-auto mb-10 leading-relaxed"
                     style={{ color: 'var(--text-secondary)' }}
                 >
-                    Experience the future of CAD modeling on Web3. A community-driven marketplace where creativity meets
-                    decentralized collaboration.
+                    The community-driven Web3 marketplace where creativity meets
+                    decentralized collaboration for CAD models.
                 </motion.p>
 
                 {/* CTA Buttons */}
@@ -105,7 +105,7 @@ export default function Hero() {
                             transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                         >
                             Get Started Free
-                            <i className="fas fa-rocket ml-1" />
+                            <i className="fas fa-arrow-right ml-1 text-sm" />
                         </motion.span>
                     </Link>
                     <motion.button
@@ -120,23 +120,30 @@ export default function Hero() {
                     </motion.button>
                 </motion.div>
 
-                {/* Trust bar */}
+                {/* Trust bar — more substantial */}
                 <motion.div
                     variants={itemVariants}
-                    className="mt-16 flex flex-wrap items-center justify-center gap-8 text-sm"
-                    style={{ color: 'var(--text-muted)' }}
+                    className="mt-14 flex flex-wrap items-center justify-center gap-6 sm:gap-10"
                 >
-                    <div className="flex items-center gap-2">
-                        <i className="fas fa-users text-cyan-400" />
-                        <span>5,000+ Creators</span>
+                    <div className="flex items-center gap-2.5" style={{ color: 'var(--text-muted)' }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(13, 148, 136, 0.1)' }}>
+                            <i className="fas fa-users text-xs" style={{ color: 'var(--accent-primary)' }} />
+                        </div>
+                        <span className="text-sm font-medium">5,000+ Creators</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <i className="fas fa-cube text-blue-400" />
-                        <span>12K+ Models</span>
+                    <div className="w-px h-5 hidden sm:block" style={{ background: 'var(--card-border)' }} />
+                    <div className="flex items-center gap-2.5" style={{ color: 'var(--text-muted)' }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(59, 110, 246, 0.1)' }}>
+                            <i className="fas fa-cube text-xs" style={{ color: 'var(--accent-blue)' }} />
+                        </div>
+                        <span className="text-sm font-medium">12K+ Models</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <i className="fas fa-shield-halved text-emerald-400" />
-                        <span>Blockchain Secured</span>
+                    <div className="w-px h-5 hidden sm:block" style={{ background: 'var(--card-border)' }} />
+                    <div className="flex items-center gap-2.5" style={{ color: 'var(--text-muted)' }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(212, 160, 83, 0.1)' }}>
+                            <i className="fas fa-shield-halved text-xs" style={{ color: 'var(--accent-secondary)' }} />
+                        </div>
+                        <span className="text-sm font-medium">Blockchain Secured</span>
                     </div>
                 </motion.div>
             </motion.div>
@@ -149,7 +156,7 @@ export default function Hero() {
                 <div className="w-7 h-11 rounded-full border-2 flex justify-center pt-2" style={{ borderColor: 'var(--card-border)' }}>
                     <motion.div
                         className="w-1 h-2 rounded-full"
-                        style={{ background: 'var(--accent-cyan)' }}
+                        style={{ background: 'var(--accent-primary)' }}
                         animate={{ y: [0, 8, 0] }}
                         transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
                     />
