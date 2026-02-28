@@ -25,10 +25,10 @@ html,
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(135deg, hsl(217 91% 65%), hsl(259 94% 65%));
+  background: hsl(224 71.4% 4.1%);
   padding: 8px 20px;
   box-shadow: 0 4px 6px -1px hsl(0 0% 0% / 0.3), 0 2px 4px -2px hsl(0 0% 0% / 0.3);
-  border-bottom: 1px solid hsl(217 91% 65%);
+  border-bottom: 1px solid hsl(240 3.7% 15.9%);
 }
 
 .topbar-left {
@@ -470,14 +470,14 @@ html,
 
 /* Status Bar */
 .statusbar {
-  background: linear-gradient(135deg, hsl(217 91% 65%), hsl(259 94% 65%));
+  background: hsl(224 71.4% 4.1%);
   padding: 6px 20px;
   font-size: 12px;
-  border-top: 1px solid hsl(217 91% 65%);
+  border-top: 1px solid hsl(240 3.7% 15.9%);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: hsl(0 0% 100% / 0.9);
+  color: hsl(0 0% 100% / 0.7);
 }
 
 /* Responsive adjustments for floating AI panel */
@@ -745,9 +745,9 @@ html,
   align-items: center;
   justify-content: space-between;
   padding: 8px 16px;
-  background: linear-gradient(135deg, hsl(217 91% 65%), hsl(259 94% 65%));
-  border-bottom: 2px solid hsl(217 91% 65%);
-  color: hsl(0 0% 100%);
+  background: hsl(215 27.9% 16.9%);
+  border-bottom: 1px solid hsl(240 3.7% 15.9%);
+  color: hsl(0 0% 100% / 0.9);
 }
 
 /* Unified 2D/3D Mode Toggle */
@@ -895,9 +895,9 @@ html,
   right: 20px;
   top: 50%;
   transform: translateY(-50%);
-  background: linear-gradient(135deg, hsl(217 91% 65%), hsl(259 94% 65%));
-  color: hsl(0 0% 100%);
-  border: none;
+  background: hsl(215 27.9% 16.9%);
+  color: hsl(210 20% 98%);
+  border: 1px solid hsl(240 3.7% 15.9%);
   border-radius: 50%;
   width: 60px;
   height: 60px;
@@ -905,15 +905,17 @@ html,
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 10px 15px -3px hsl(217 91% 65% / 0.4);
+  box-shadow: 0 10px 15px -3px hsl(0 0% 0% / 0.3);
   transition: all 0.3s ease;
   z-index: 1000;
   font-size: 20px;
 }
 
 .sidebar-toggle-btn:hover {
-  transform: translateY(-50%) scale(1.1);
-  box-shadow: 0 25px 50px -12px hsl(217 91% 65% / 0.6);
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: 0 15px 30px -10px hsl(0 0% 0% / 0.5);
+  border-color: #0d9488;
+  color: #0d9488;
 }
 
 .collapsible-sidebar {
