@@ -1,72 +1,164 @@
+import { useRef, useEffect } from 'react'
+import { motion } from 'framer-motion'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+
+gsap.registerPlugin(ScrollTrigger)
+
 export default function ModelShowcase() {
+    const sectionRef = useRef<HTMLElement>(null)
+    const viewerRef = useRef<HTMLDivElement>(null)
+
+    // GSAP parallax on 3D viewer
+    useEffect(() => {
+        if (!viewerRef.current || !sectionRef.current) return
+
+        gsap.fromTo(
+            viewerRef.current,
+            { y: 60 },
+            {
+                y: -30,
+                ease: 'none',
+                scrollTrigger: {
+                    trigger: sectionRef.current,
+                    start: 'top bottom',
+                    end: 'bottom top',
+                    scrub: 1,
+                },
+            }
+        )
+    }, [])
+
+    const textVariants = {
+        hidden: {},
+        visible: {
+            transition: { staggerChildren: 0.1, delayChildren: 0.2 },
+        },
+    }
+
+    const itemVariants = {
+        hidden: { opacity: 0, x: 30 },
+        visible: {
+            opacity: 1,
+            x: 0,
+            transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
+        },
+    }
+
+    const features = [
+        {
+            icon: 'fa-vr-cardboard',
+            color: 'bg-cyan-500/15 text-cyan-400',
+            title: '360° Preview',
+            desc: 'Inspect every angle and detail',
+        },
+        {
+            icon: 'fa-shield-alt',
+            color: 'bg-purple-500/15 text-purple-400',
+            title: 'Blockchain Verification',
+            desc: 'True ownership on-chain',
+        },
+    ]
+
     return (
-        <section className="py-32 px-6 relative overflow-hidden">
+        <section ref={sectionRef} className="py-28 md:py-36 px-6 relative overflow-hidden section-mesh">
             <div className="max-w-7xl mx-auto">
-                <div className="grid lg:grid-cols-2 gap-20 items-center">
-                    {/* Left - 3D Viewer */}
-                    <div className="reveal-left">
-                        <div className="relative">
+                <div className="grid lg:grid-cols-2 gap-16 lg:gap-20 items-center">
+                    {/* Left — 3D Viewer */}
+                    <motion.div
+                        ref={viewerRef}
+                        className="lg:w-[90%] xl:w-[85%] lg:ml-auto"
+                        initial={{ opacity: 0, x: -40 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true, margin: '-100px' }}
+                        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                        <div className="relative group w-full">
+                            {/* Animated glowing background on hover */}
+                            <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500/30 to-blue-600/30 rounded-[1.25rem] blur-xl opacity-0 group-hover:opacity-100 transition duration-700 pointer-events-none" />
+                            
                             <div
-                                className="relative rounded-2xl overflow-hidden glass-card shadow-lg bg-slate-900/10"
-                                style={{ aspectRatio: '16/10' }}
+                                className="relative rounded-2xl overflow-hidden backdrop-blur-md transition-all duration-700 min-h-[400px] w-full"
+                                style={{ 
+                                    aspectRatio: '4/3',
+                                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                                    background: 'rgba(10, 15, 30, 0.4)',
+                                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                                }}
                             >
+                                {/* Decorative top gradient line */}
+                                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent z-10" />
+                                
                                 <iframe
                                     title="Engine"
                                     frameBorder="0"
                                     allowFullScreen
                                     allow="autoplay; fullscreen; xr-spatial-tracking"
                                     src="https://sketchfab.com/models/eea9d9252ab14298b50699a471dc2cee/embed?autospin=1&autostart=1&preload=1&transparent=1&ui_theme=dark"
-                                    className="w-full h-full"
-                                    style={{ minHeight: '400px' }}
+                                    className="w-full h-full relative z-0"
                                 />
                             </div>
-                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 glass-card rounded-full text-xs font-bold text-slate-500">
-                                <i className="fas fa-mouse-pointer mr-2" />INTERACT IN 3D
+                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2"
+                                style={{ background: 'var(--glass-bg)', border: '1px solid var(--card-border)', color: 'var(--text-muted)', backdropFilter: 'blur(12px)' }}>
+                                <i className="fas fa-hand-pointer" />
+                                INTERACT IN 3D
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
 
-                    {/* Right - Details */}
-                    <div className="reveal-right">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-wider mb-6">
+                    {/* Right — Details */}
+                    <motion.div
+                        variants={textVariants}
+                        initial="hidden"
+                        whileInView="visible"
+                        viewport={{ once: true, margin: '-100px' }}
+                    >
+                        <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider mb-6"
+                            style={{ background: 'rgba(0, 212, 255, 0.08)', border: '1px solid rgba(0, 212, 255, 0.15)', color: 'var(--accent-cyan)' }}>
                             <span className="relative flex h-2 w-2">
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500" />
+                                <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: 'var(--accent-cyan)' }} />
                             </span>
                             Premium Experience
-                        </div>
+                        </motion.div>
 
-                        <h2 className="text-4xl md:text-6xl font-black mb-8 leading-tight text-slate-950 dark:text-white">
+                        <motion.h2 variants={itemVariants} className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold mb-6 leading-tight" style={{ color: 'var(--text-primary)' }}>
                             Visualize Excellence <br /><span className="text-gradient">In Full 3D</span>
-                        </h2>
+                        </motion.h2>
 
-                        <p className="text-lg text-slate-400 mb-10 leading-relaxed font-medium">
+                        <motion.p variants={itemVariants} className="text-base md:text-lg mb-10 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                             Don't just look at images. Inspect high-fidelity CAD models directly in your browser with our integrated
                             WebGL viewer.
-                        </p>
+                        </motion.p>
 
-                        <div className="grid sm:grid-cols-2 gap-6 mb-10">
-                            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-indigo-500/50 transition-colors group">
-                                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                    <i className="fas fa-vr-cardboard text-indigo-400" />
-                                </div>
-                                <h4 className="font-bold text-slate-900 dark:text-white mb-1">360° Preview</h4>
-                                <p className="text-xs text-slate-500">Inspect every angle and detail</p>
-                            </div>
+                        <motion.div variants={itemVariants} className="grid sm:grid-cols-2 gap-4 mb-10">
+                            {features.map((f) => (
+                                <motion.div
+                                    key={f.title}
+                                    className="card group cursor-default"
+                                    whileHover={{ y: -4 }}
+                                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                                >
+                                    <div className={`w-10 h-10 rounded-xl ${f.color} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300`}>
+                                        <i className={`fas ${f.icon}`} />
+                                    </div>
+                                    <h4 className="font-heading font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{f.title}</h4>
+                                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{f.desc}</p>
+                                </motion.div>
+                            ))}
+                        </motion.div>
 
-                            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 transition-colors group">
-                                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                    <i className="fas fa-shield-alt text-purple-400" />
-                                </div>
-                                <h4 className="font-bold text-slate-900 dark:text-white mb-1">Blockchain Verification</h4>
-                                <p className="text-xs text-slate-500">True ownership on-chain</p>
-                            </div>
-                        </div>
-
-                        <a href="#" className="glass-button inline-flex items-center gap-3 hover-lift">
-                            Join the Community
-                            <i className="fas fa-arrow-right" />
-                        </a>
-                    </div>
+                        <motion.div variants={itemVariants}>
+                            <motion.a
+                                href="#"
+                                className="btn-primary inline-flex items-center gap-3"
+                                whileHover={{ scale: 1.04, y: -2 }}
+                                whileTap={{ scale: 0.97 }}
+                            >
+                                Join the Community
+                                <i className="fas fa-arrow-right" />
+                            </motion.a>
+                        </motion.div>
+                    </motion.div>
                 </div>
             </div>
         </section>

@@ -1,4 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { AnimatePresence } from 'framer-motion'
+import Lenis from 'lenis'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Header from './components/Header'
 import Hero from './components/Hero'
 import ModelShowcase from './components/ModelShowcase'
@@ -11,11 +15,11 @@ import DetailedFeatures from './components/DetailedFeatures'
 import Pricing from './components/Pricing'
 import Footer from './components/Footer'
 import BackToTop from './components/BackToTop'
-import { useScrollReveal } from './hooks/useScrollReveal'
+
+gsap.registerPlugin(ScrollTrigger)
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
-// Detect production vs development for marketplace URL
 const getMarketplaceUrl = () => {
     if (import.meta.env.VITE_MARKETPLACE_URL) {
         return import.meta.env.VITE_MARKETPLACE_URL;
@@ -34,15 +38,33 @@ function App() {
         }
         return false
     })
+    const lenisRef = useRef<Lenis | null>(null)
 
-    // Initialize scroll reveal animations
-    useScrollReveal()
+    // Initialize Lenis smooth scroll
+    useEffect(() => {
+        const lenis = new Lenis({
+            duration: 1.2,
+            easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        })
+        lenisRef.current = lenis
 
-    // Check for Clerk auth and redirect logged-in users to marketplace
+        // Sync Lenis with GSAP ScrollTrigger
+        lenis.on('scroll', ScrollTrigger.update)
+        gsap.ticker.add((time) => {
+            lenis.raf(time * 1000)
+        })
+        gsap.ticker.lagSmoothing(0)
+
+        return () => {
+            lenis.destroy()
+            gsap.ticker.remove(lenis.raf as any)
+        }
+    }, [])
+
+    // Clerk auth redirect
     useEffect(() => {
         if (!CLERK_PUBLISHABLE_KEY) return
 
-        // Load Clerk and check auth for any authenticated user on the landing page
         const script = document.createElement('script')
         script.src = 'https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js'
         script.async = true
@@ -54,7 +76,6 @@ function App() {
                 await window.Clerk.load({
                     allowedRedirectOrigins: [MARKETPLACE_URL, window.location.origin],
                 })
-                // If user is logged in, redirect to marketplace
                 if (window.Clerk.user) {
                     window.location.href = MARKETPLACE_URL
                 }
@@ -79,22 +100,24 @@ function App() {
     const toggleDarkMode = () => setDarkMode(!darkMode)
 
     return (
-        <div className="min-h-screen transition-colors duration-300">
-            <Header darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-            <main>
-                <Hero />
-                <ModelShowcase />
-                <Collections />
-                <Features />
-                <HowItWorks />
-                <Gallery />
-                <Testimonials />
-                <DetailedFeatures />
-                <Pricing />
-            </main>
-            <Footer />
-            <BackToTop />
-        </div>
+        <AnimatePresence mode="wait">
+            <div className="min-h-screen transition-colors duration-500">
+                <Header darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+                <main>
+                    <Hero />
+                    <ModelShowcase />
+                    <Collections />
+                    <Features />
+                    <HowItWorks />
+                    <Gallery />
+                    <Testimonials />
+                    <DetailedFeatures />
+                    <Pricing />
+                </main>
+                <Footer />
+                <BackToTop />
+            </div>
+        </AnimatePresence>
     )
 }
 

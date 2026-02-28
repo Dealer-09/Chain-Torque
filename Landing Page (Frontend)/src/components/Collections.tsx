@@ -1,58 +1,95 @@
+import { motion } from 'framer-motion'
+import { useState } from 'react'
+
 export default function Collections() {
     const collections = [
         {
             title: 'Mechanical Parts',
             desc: 'Precision-engineered gears, joints, and industrial components.',
             icon: 'fa-cog',
-            iconBg: 'bg-blue-500/20',
-            iconColor: 'text-blue-400',
-            linkColor: 'text-blue-400',
+            accent: 'from-cyan-400 to-blue-500',
+            iconBg: 'bg-cyan-500/12',
+            iconColor: 'text-cyan-400',
         },
         {
             title: 'Architectural',
             desc: 'Stunning 3D building models, urban layouts, and interiors.',
             icon: 'fa-building',
-            iconBg: 'bg-purple-500/20',
+            accent: 'from-purple-400 to-indigo-500',
+            iconBg: 'bg-purple-500/12',
             iconColor: 'text-purple-400',
-            linkColor: 'text-purple-400',
         },
         {
             title: '3D Printables',
             desc: 'Optimized, manifold models ready for immediate 3D printing.',
             icon: 'fa-print',
-            iconBg: 'bg-pink-500/20',
-            iconColor: 'text-pink-400',
-            linkColor: 'text-pink-400',
+            accent: 'from-amber-400 to-orange-500',
+            iconBg: 'bg-amber-500/12',
+            iconColor: 'text-amber-400',
         },
     ]
 
     return (
-        <section className="py-32 px-6 relative" id="library">
+        <section className="py-28 md:py-36 px-6 relative" id="library">
             <div className="max-w-6xl mx-auto">
-                <div className="text-center mb-16 reveal">
-                    <h2 className="text-4xl md:text-5xl font-black mb-6">
+                {/* Section Header */}
+                <motion.div
+                    className="text-center mb-16"
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: '-80px' }}
+                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                >
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-heading font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
                         Curated <span className="text-gradient">Collections</span>
                     </h2>
-                    <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+                    <p className="text-base md:text-lg max-w-2xl mx-auto" style={{ color: 'var(--text-secondary)' }}>
                         Explore the finest 3D models hand-picked by our curators for quality and precision.
                     </p>
-                </div>
+                </motion.div>
 
-                <div className="grid md:grid-cols-3 gap-8">
-                    {collections.map((collection) => (
-                        <div key={collection.title} className="card-modern glass-card reveal hover-lift">
-                            <div className={`card-icon ${collection.iconBg} ${collection.iconColor}`}>
-                                <i className={`fas ${collection.icon}`} />
-                            </div>
-                            <h3 className="text-2xl font-bold mb-4 text-slate-900 dark:text-white">{collection.title}</h3>
-                            <p className="text-slate-400 mb-6">{collection.desc}</p>
-                            <a href="#" className={`${collection.linkColor} font-bold flex items-center gap-2 hover:gap-3 transition-all`}>
-                                View Collection <i className="fas fa-chevron-right text-xs" />
-                            </a>
-                        </div>
+                {/* Cards */}
+                <div className="grid md:grid-cols-3 gap-6">
+                    {collections.map((collection, index) => (
+                        <CollectionCard key={collection.title} collection={collection} index={index} />
                     ))}
                 </div>
             </div>
         </section>
+    )
+}
+
+function CollectionCard({ collection, index }: { collection: any; index: number }) {
+    const [hovered, setHovered] = useState(false)
+
+    return (
+        <motion.div
+            className="card cursor-default group"
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.6, delay: index * 0.1, ease: [0.16, 1, 0.3, 1] }}
+            onHoverStart={() => setHovered(true)}
+            onHoverEnd={() => setHovered(false)}
+            whileHover={{ y: -6 }}
+            style={{ transformStyle: 'preserve-3d' }}
+        >
+            {/* Accent top stripe */}
+            <div className={`absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r ${collection.accent} rounded-full transition-opacity duration-300 ${hovered ? 'opacity-100' : 'opacity-0'}`} />
+
+            <div className={`card-icon ${collection.iconBg} ${collection.iconColor}`}>
+                <i className={`fas ${collection.icon}`} />
+            </div>
+
+            <h3 className="text-xl font-heading font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+                {collection.title}
+            </h3>
+            <p className="text-sm mb-6 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                {collection.desc}
+            </p>
+            <a href="#" className={`${collection.iconColor} font-semibold text-sm flex items-center gap-2 group-hover:gap-3 transition-all duration-300`}>
+                View Collection <i className="fas fa-chevron-right text-xs" />
+            </a>
+        </motion.div>
     )
 }

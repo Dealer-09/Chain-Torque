@@ -25,15 +25,11 @@ export default function BackToTop() {
 
         const handleScroll = () => {
             updateProgress()
-            if (window.scrollY > 150) {
-                setIsVisible(true)
-            } else {
-                setIsVisible(false)
-            }
+            setIsVisible(window.scrollY > 200)
         }
 
         window.addEventListener('scroll', handleScroll)
-        handleScroll() // Initial call
+        handleScroll()
 
         return () => window.removeEventListener('scroll', handleScroll)
     }, [])
@@ -51,6 +47,9 @@ export default function BackToTop() {
             <svg className="progress-circle svg-content" width="100%" height="100%" viewBox="-1 -1 102 102">
                 <path ref={pathRef} d="M50,1 a49,49 0 0,1 0,98 a49,49 0 0,1 0,-98" />
             </svg>
+            <span className="arrow-icon">
+                <i className="fas fa-arrow-up" />
+            </span>
         </div>
     )
 }
