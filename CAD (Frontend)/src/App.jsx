@@ -30,6 +30,7 @@ import UploadToMarketplaceModal from "./components/UploadToMarketplaceModal.jsx"
 import CADOperations from "./components/CADOperations.jsx";
 import ImageTo3D from "./components/ImageTo3D.jsx";
 import { FaMagic } from "react-icons/fa";
+import cadGeometryService from './cad/CADGeometryService';
 import "./App.css";
 
 const App = () => {
@@ -67,6 +68,8 @@ const App = () => {
 
   // Parse URL params on mount
   useEffect(() => {
+    cadGeometryService.init().catch(err => console.error("CAD init error:", err));
+
     const urlParams = new URLSearchParams(window.location.search);
     const model = urlParams.get('model');
     const title = urlParams.get('title');
@@ -279,62 +282,111 @@ const App = () => {
         setViewMode('2d'); // Hop into sketch view to see them
       }
 
-      // 2) If we got 3D shapes back, generate them and add to features
+      // 2) If we got 3D shapes back, process them potentially with CSG
       if (data.shapes && data.shapes.length > 0) {
-        const THREE = await import('three');
-        const newFeatures = data.shapes.map((shape, idx) => {
-          let geometry;
-          const p = shape.parameters || {};
+        // Ensure CAD Kernel is ready for advanced boolean ops
+        await cadGeometryService.init();
 
-          switch (shape.type) {
-            case 'cube':
-              geometry = new THREE.BoxGeometry(p.width || 10, p.height || 10, p.depth || 10);
-              break;
-            case 'sphere':
-              geometry = new THREE.SphereGeometry(p.radius || 10, 32, 32);
-              break;
-            case 'cylinder':
-              geometry = new THREE.CylinderGeometry(p.radiusTop || 5, p.radiusBottom || 5, p.height || 10, 32);
-              break;
-            case 'cone':
-              geometry = new THREE.ConeGeometry(p.radius || 5, p.height || 10, 32);
-              break;
-            default:
-              geometry = new THREE.BoxGeometry(10, 10, 10);
+        // 2a. Instantiate all primitives as OpenCascade BRep Shapes
+        const shapeMap = new Map(); // Store by ID
+
+        for (const shapeDef of data.shapes) {
+          const p = shapeDef.parameters || {};
+          const pos = shapeDef.position || { x: 0, y: 0, z: 0 };
+          let ocShape = null;
+
+          try {
+            switch (shapeDef.type) {
+              case 'cube':
+              case 'plane': // Torquy occasionally uses plane, treat as thin box
+                // OCBox takes width, height, depth and spawns from corner usually, createBox handles centering
+                ocShape = cadGeometryService.createBox(p.width || 10, p.height || 10, p.depth || 10, pos);
+                break;
+              case 'sphere':
+                ocShape = cadGeometryService.createSphere(p.radius || 10, pos);
+                break;
+              case 'cylinder':
+              case 'cone':
+                ocShape = cadGeometryService.createCylinder(p.radiusTop || p.radius || 5, p.height || 10, pos);
+                break;
+              default:
+                ocShape = cadGeometryService.createBox(10, 10, 10, pos);
+            }
+
+            // Note: Rotation on OC shapes omitted for brevity in this initial pass, 
+            // Torquy primarily relies on position and sizing to stack.
+
+            if (ocShape) {
+              shapeMap.set(shapeDef.id || `torquy_shape_${Date.now()}_${Math.random()}`, {
+                ocShape: ocShape,
+                def: shapeDef,
+                isConsumed: false // Will be true if used as a tool in boolean
+              });
+            }
+          } catch (e) {
+            console.error("Failed to make shape:", shapeDef, e);
           }
+        }
 
-          // Apply rotation if any (in radians)
-          if (shape.rotation) {
-            geometry.rotateX(shape.rotation.x || 0);
-            geometry.rotateY(shape.rotation.y || 0);
-            geometry.rotateZ(shape.rotation.z || 0);
+        // 2b. Execute Boolean Operations if provided
+        if (data.boolean_operations && data.boolean_operations.length > 0) {
+          console.log("[Torquy] Executing Boolean CSG Operations:", data.boolean_operations.length);
+          for (const op of data.boolean_operations) {
+            const base = shapeMap.get(op.baseShapeId);
+            const tool = shapeMap.get(op.toolShapeId);
+
+            if (base && tool && !base.isConsumed && !tool.isConsumed) {
+              try {
+                let resultShape = null;
+                console.log(`[Torquy CSG] ${op.type}: ${op.baseShapeId} & ${op.toolShapeId}`);
+                if (op.type === 'subtract' || op.type === 'cut') {
+                  resultShape = cadGeometryService.booleanCut(base.ocShape, tool.ocShape);
+                } else if (op.type === 'union') {
+                  resultShape = cadGeometryService.booleanUnion(base.ocShape, tool.ocShape);
+                } else if (op.type === 'intersect') {
+                  resultShape = cadGeometryService.booleanIntersect(base.ocShape, tool.ocShape);
+                }
+
+                if (resultShape) {
+                  // Replace base shape with the new booleaned shape
+                  base.ocShape = resultShape;
+                  // Mark tool as consumed so we don't render it separately
+                  tool.isConsumed = true;
+                }
+              } catch (e) {
+                console.error("Boolean operation failed:", op, e);
+              }
+            }
           }
+        }
 
-          // Apply translation
-          const pos = shape.position || { x: 0, y: 0, z: 0 };
-          geometry.translate(pos.x, pos.y, pos.z);
+        // 2c. Convert all non-consumed shapes to meshes
+        const newFeatures = [];
+        for (const [id, item] of shapeMap.entries()) {
+          if (!item.isConsumed) {
+            try {
+              const meshData = cadGeometryService.shapeToMesh(item.ocShape);
+              newFeatures.push({
+                id: `torquy_csg_${Date.now()}_${Math.random()}`,
+                type: '3d-solid',
+                name: `Engineered ${item.def.type}`,
+                source: 'torquy-csg',
+                meshData: meshData,
+                color: item.def.color || '#4ecdc4',
+                visible: true
+              });
+            } catch (e) {
+              console.error("Failed to mesh shape:", id, e);
+            }
+          }
+        }
 
-          // Extract attributes required by ViewportManager (vertices, indices, normals)
-          return {
-            id: `torquy_${Date.now()}_${idx}`,
-            type: '3d-solid',
-            name: `AI generated ${shape.type}`,
-            source: 'torquy-primitive',
-            meshData: {
-              vertices: geometry.attributes.position.array,
-              normals: geometry.attributes.normal.array,
-              indices: geometry.index ? geometry.index.array : null
-            },
-            color: shape.color || '#4ecdc4',
-            visible: true
-          };
-        });
-
-        // Add them to the global features so they render
-        setFeatures(prev => [...prev, ...newFeatures]);
-
-        // Ensure we are in 3D mode to view them
-        setViewMode('3d');
+        if (newFeatures.length > 0) {
+          setFeatures(prev => [...prev, ...newFeatures]);
+          setViewMode('3d');
+        } else {
+          setChatMessages(prev => [...prev, { role: 'ai', text: `⚠️ Torquy generated shapes, but they failed to compile in the CAD engine.` }]);
+        }
       }
 
     } catch (err) {

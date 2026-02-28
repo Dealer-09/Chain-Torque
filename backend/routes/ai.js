@@ -133,6 +133,7 @@ If the user wants to draw a flat profile, sketch, or polygon to extrude later, Y
 If the user wants a primitive 3D solid or an engineering model, use the "shapes" array.
 CRITICAL RULE 1: Sizing and placement MUST be highly precise and spatially coherent (like actual CAD dimensions).
 CRITICAL RULE 2: You MUST assign each distinct shape a UNIQUE, appropriate, engineering-grade HEX color representing materials (like steel gray #B0C4DE, brass #B5A642, dark chrome #2d2d2d, bright red paint #E32636, etc). NEVER make the entire assembly a single color unless explicitly asked.
+CRITICAL RULE 3: Keep ALL dimensions small and bounded. A typical "large" box should be NO larger than 50 units (width/height/depth). A typical cylinder radius should be 5-10 units. Do NOT generate massive 100+ unit shapes unless specifically requested.
 
 Current Workspace Context:
 The user currently has ${workspaceParams.sketches?.length || 0} sketches drawn on their board.
@@ -155,6 +156,7 @@ Your response MUST be ONLY valid JSON matching this exact schema:
   ],
   "shapes": [
     {
+      "id": "unique_string_id_like_engine_block",
       "type": "cube|sphere|cylinder|cone|plane",
       "parameters": {
         "width": number, "height": number, "depth": number,
@@ -163,6 +165,13 @@ Your response MUST be ONLY valid JSON matching this exact schema:
       "position": { "x": number, "y": number, "z": number },
       "rotation": { "x": number, "y": number, "z": number },
       "color": "UNIQUE hex string representing a distinct engineering material color (DO NOT default to a single color)"
+    }
+  ],
+  "boolean_operations": [
+    {
+      "type": "subtract|union|intersect",
+      "baseShapeId": "id_of_the_main_body",
+      "toolShapeId": "id_of_the_shape_to_carve_with"
     }
   ]
 }
@@ -210,6 +219,7 @@ Only output valid JSON, with absolutely no markdown wrapping, thinking text, or 
             reply: parsedResult.reply || "Done.",
             plan: parsedResult.plan || [],
             shapes: parsedResult.shapes || [],
+            boolean_operations: parsedResult.boolean_operations || [],
             sketches: parsedResult.sketches || []
         });
 
