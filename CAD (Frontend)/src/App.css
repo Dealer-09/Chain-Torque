@@ -565,14 +565,14 @@ html,
 .feature-tree {
   flex: 1;
   padding: 15px;
-  border-bottom: 1px solid hsl(240 3.7% 15.9%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   overflow-y: auto;
   min-height: 200px;
 }
 
 .feature-tree-header h3 {
   margin: 0 0 15px 0;
-  color: hsl(217 91% 65%);
+  color: #ffffff;
   font-size: 16px;
   font-weight: bold;
 }
@@ -594,16 +594,16 @@ html,
   align-items: center;
   padding: 8px;
   margin: 5px 0;
-  background: hsl(215 27.9% 16.9%);
-  border-radius: 6px;
-  border: 1px solid hsl(240 3.7% 15.9%);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .feature-item:hover {
-  background: hsl(215 27.9% 20%);
-  border-color: hsl(217 91% 65%);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
   transform: translateX(2px);
 }
 
@@ -613,7 +613,7 @@ html,
 
 .feature-icon {
   margin-right: 10px;
-  color: hsl(217 91% 65%);
+  color: rgba(255, 255, 255, 0.6);
   font-size: 14px;
 }
 
@@ -660,7 +660,7 @@ html,
 }
 
 .feature-controls .toggle-visibility:hover {
-  background: hsl(217 91% 65%);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 /* CAD Operations Styles */
@@ -668,12 +668,12 @@ html,
   flex: 1;
   padding: 15px;
   overflow-y: auto;
-  background: hsl(224 71.4% 4.1%);
+  background: transparent;
 }
 
 .operations-header h3 {
   margin: 0 0 15px 0;
-  color: hsl(217 91% 65%);
+  color: #ffffff;
   font-size: 16px;
   font-weight: bold;
 }
@@ -686,12 +686,11 @@ html,
 }
 
 .operation-panel {
-  background: hsl(215 27.9% 16.9%);
+  background: rgba(255, 255, 255, 0.03);
   padding: 15px;
   margin: 10px 0;
   border-radius: 8px;
-  border: 1px solid hsl(240 3.7% 15.9%);
-  box-shadow: 0 4px 6px -1px hsl(0 0% 0% / 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .operation-panel h4 {
@@ -975,9 +974,11 @@ html,
   top: 60px;
   bottom: 0;
   width: 350px;
-  background: hsl(224 71.4% 4.1%);
-  border-left: 3px solid hsl(217 91% 65%);
-  box-shadow: -4px 0 20px hsl(0 0% 0% / 0.5);
+  background: rgba(15, 15, 18, 0.85);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: -4px 0 20px hsl(0 0% 0% / 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 999;
   display: flex;
@@ -997,16 +998,17 @@ html,
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: hsl(217 91% 65% / 0.1);
-  border-bottom: 2px solid hsl(217 91% 65%);
-  color: hsl(0 0% 100%);
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  letter-spacing: 0.5px;
 }
 
 .sidebar-header h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: hsl(217 91% 65%);
+  color: #ffffff;
 }
 
 .sidebar-close-btn {
@@ -1026,9 +1028,9 @@ html,
 }
 
 .sidebar-close-btn:hover {
-  background: hsl(0 84.2% 60.2%);
-  border-color: hsl(0 84.2% 60.2%);
-  color: hsl(0 0% 100%);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
   transform: rotate(90deg);
 }
 
@@ -1043,7 +1045,7 @@ html,
   margin: 0;
   border-radius: 0;
   border: none;
-  border-bottom: 2px solid hsl(217 91% 65%);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.05);
 }
 
 .sidebar-content .cad-operations {

@@ -365,16 +365,38 @@ const App = () => {
     }
   };
 
+  // Rename Project
+  const handleRename = () => {
+    const newName = prompt('Enter project name:', projectName);
+    if (newName && newName.trim()) {
+      setProjectName(newName.trim());
+      return newName.trim();
+    }
+    return null;
+  };
+
   // Save Project
   const handleSave = () => {
     try {
+      // Prompt for a name if still using the default
+      let nameToSave = projectName;
+      if (projectName === 'Untitled Model') {
+        const entered = prompt('Name your project before saving:', '');
+        if (!entered || !entered.trim()) {
+          alert('Save cancelled — please provide a project name.');
+          return;
+        }
+        nameToSave = entered.trim();
+        setProjectName(nameToSave);
+      }
+
       let viewportData = { sketches: [] };
       if (viewportRef.current?.getProjectData) {
         viewportData = viewportRef.current.getProjectData();
       }
 
       const projectData = {
-        projectName,
+        projectName: nameToSave,
         features: features.map(f => {
           if (f.meshData && f.meshData.vertices) {
             return {
@@ -395,7 +417,7 @@ const App = () => {
       };
 
       localStorage.setItem('chainTorqueCADProject', JSON.stringify(projectData));
-      alert(`Project "${projectName}" saved locally!`);
+      alert(`✅ Project "${nameToSave}" saved locally!`);
     } catch (err) {
       console.error('Failed to save project:', err);
       alert('Failed to save project: ' + err.message);
@@ -560,7 +582,14 @@ const App = () => {
       <div className="topbar">
         <div className="topbar-left">
           <h1>ChainTorque CAD</h1>
-          <span className="filename">{projectName}</span>
+          <span
+            className="filename"
+            onClick={handleRename}
+            title="Click to rename project"
+            style={{ cursor: 'pointer' }}
+          >
+            {projectName}
+          </span>
           {modelInfo && (
             <span className="model-info" style={{ marginLeft: '15px', fontSize: '12px', color: '#888' }}>
               | Vertices: {modelInfo.vertices?.toLocaleString() || 0}

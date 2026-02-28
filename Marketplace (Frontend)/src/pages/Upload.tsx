@@ -195,7 +195,7 @@ const Upload: React.FC = () => {
         tokenURI,
         parseFloat(uploadData.price),
         categoryId,
-        parseInt((parseFloat(uploadData.royalty) * 100).toString(), 10) // Convert % to BPS (e.g., 5.5% = 550)
+        parseFloat(uploadData.royalty) // Raw %, web3Service converts to BPS internally
       );
 
       if (!mintResult.transactionHash) {
@@ -272,11 +272,28 @@ const Upload: React.FC = () => {
 
     } catch (error: any) {
       console.error('Upload error:', error);
-      // Handle MetaMask rejection specifically
-      if (error.code === 'ACTION_REJECTED' || error.message?.includes('user rejected')) {
+
+      // Extract revert reason from ethers error (handles CALL_EXCEPTION)
+      const revertReason: string =
+        error?.revert?.args?.[0] ||   // ethers v6 structured revert
+        error?.reason ||               // ethers v5-style
+        error?.data?.message ||
+        '';
+
+      const msg = revertReason || error?.message || '';
+
+      if (error.code === 'ACTION_REJECTED' || msg.toLowerCase().includes('user rejected')) {
         alert('Transaction cancelled. You can try again when ready.');
+      } else if (msg.toLowerCase().includes('royalty too high')) {
+        alert('❌ Royalty Too High\n\nThe contract only allows a maximum royalty of 10% (1000 basis points).\n\nPlease go back to Step 2 and lower your royalty percentage.');
+      } else if (msg.toLowerCase().includes('price')) {
+        alert(`❌ Invalid Price\n\n${msg}\n\nPlease go back to Step 2 and adjust your price.`);
+      } else if (msg.toLowerCase().includes('listing price') || msg.toLowerCase().includes('insufficient')) {
+        alert('❌ Insufficient Listing Fee\n\nThe transaction value did not cover the marketplace listing fee. Please try again.');
+      } else if (revertReason) {
+        alert(`❌ Transaction Reverted\n\nReason: "${revertReason}"\n\nPlease review your details and try again.`);
       } else {
-        alert(`Upload failed: ${error.message || 'Unknown error occurred'}`);
+        alert(`Upload failed: ${msg || 'Unknown error occurred'}`);
       }
     } finally {
       setIsUploading(false);
