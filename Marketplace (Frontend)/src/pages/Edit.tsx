@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { WalletConnectionDialog } from '@/components/ui/wallet-connection-dialog';
-import { Plus, Loader2, AlertCircle, Download, Star, Edit3, Wallet, Tag } from 'lucide-react';
+import { Plus, Loader2, AlertCircle, Download, Star, Edit3, Wallet, Tag, Sparkles } from 'lucide-react';
 import apiService from '@/services/apiService';
 import { getCadUrl } from '@/lib/urls';
 import { useWalletAddress } from '@/hooks/useWalletAddress';
@@ -114,6 +114,11 @@ const Edit = () => {
   const handleCreateNew = () => {
     // Navigate to the CAD editor for creating a new model
     window.open(getCadUrl(), '_blank');
+  };
+
+  const handleGenerateAI = () => {
+    // Navigate to the CAD editor and automatically open the Image-to-3D modal
+    window.open(`${getCadUrl()}?tool=ai`, '_blank');
   };
 
   const handleWalletConnected = () => {
@@ -283,6 +288,33 @@ const Edit = () => {
           className="mt-4 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
         >
           Open Editor
+        </Button>
+      </CardContent>
+    </Card>
+  );
+
+  // Generate AI Card Component
+  const GenerateAICard = () => (
+    <Card
+      className="group cursor-pointer bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-solid border-2 border-blue-500/30 hover:border-blue-500/60 transition-all duration-300 hover:shadow-[0_0_20px_rgba(59,130,246,0.2)]"
+      onClick={handleGenerateAI}
+    >
+      <CardContent className="p-6 flex flex-col items-center justify-center h-[300px]">
+        <div className="w-16 h-16 bg-gradient-to-tr from-blue-500 to-purple-500 rounded-xl flex items-center justify-center mb-4 transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-inner">
+          <Sparkles className="h-8 w-8 text-white" />
+        </div>
+        <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+          Image to 3D AI
+        </h3>
+        <p className="text-sm text-muted-foreground text-center">
+          Generate a 3D model instantly from any 2D sketch or photo
+        </p>
+        <Button
+          size="sm"
+          className="mt-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-md border-0"
+        >
+          <Sparkles className="h-4 w-4 mr-2" />
+          Generate
         </Button>
       </CardContent>
     </Card>
@@ -514,6 +546,9 @@ const Edit = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {/* Create New Card - Always first */}
                 <CreateNewCard />
+
+                {/* Generate AI Card */}
+                <GenerateAICard />
 
                 {/* Purchased Items */}
                 {purchasedItems.map(item => (

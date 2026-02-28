@@ -23,7 +23,7 @@
     "deploy:sepolia": "cd backend && bun x hardhat run scripts/deploy.js --network sepolia",
     "dev:landing": "cd \"Landing Page (Frontend)\" && bun run dev",
     "dev:marketplace": "cd \"Marketplace (Frontend)\" && bun run dev",
-    "dev:backend": "cd backend && PORT=5001 bun run dev",
+    "dev:backend": "cd backend && cross-env PORT=5001 bun run dev",
     "dev:cad": "cd \"CAD (Frontend)\" && bun run dev",
     "build:landing": "cd \"Landing Page (Frontend)\" && npm run build",
     "build:marketplace": "cd \"Marketplace (Frontend)\" && npm run build",

@@ -26,10 +26,13 @@ import {
 import ViewportManager from "./components/ViewportManager.jsx";
 import FeatureTree from "./components/FeatureTree.jsx";
 import CADOperations from "./components/CADOperations.jsx";
+import ImageTo3D from "./components/ImageTo3D.jsx";
+import { FaMagic } from "react-icons/fa";
 import "./App.css";
 
 const App = () => {
   const [showAIPanel, setShowAIPanel] = useState(false);
+  const [showImageTo3D, setShowImageTo3D] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [activeTool, setActiveTool] = useState('select');
   const [activeView, setActiveView] = useState('iso');
@@ -50,9 +53,14 @@ const App = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const model = urlParams.get('model');
     const title = urlParams.get('title');
+    const tool = urlParams.get('tool');
 
     if (model) {
       setModelUrl(decodeURIComponent(model));
+    }
+
+    if (tool === 'ai') {
+      setShowImageTo3D(true);
     }
 
     if (title) {
@@ -363,6 +371,12 @@ const App = () => {
             className={`ai-copilot ${showAIPanel ? 'active' : ''}`}
             onClick={toggleAIPanel}
           />
+          <FaMagic
+            title="Image to 3D AI"
+            className={`ai-magic-btn ${showImageTo3D ? 'active' : ''}`}
+            onClick={() => setShowImageTo3D(true)}
+            style={{ cursor: 'pointer', color: showImageTo3D ? '#4facfe' : 'inherit' }}
+          />
           <FaCog title="Settings" />
         </div>
       </div>
@@ -586,6 +600,18 @@ const App = () => {
           </div>
         </div>
       </div>
+
+      {/* Image to 3D AI Modal */}
+      {showImageTo3D && (
+        <ImageTo3D
+          onClose={() => setShowImageTo3D(false)}
+          onModelGenerated={(url) => {
+            setModelUrl(url);
+            // Optionally auto-switch to 3D mode
+            setViewMode('3d');
+          }}
+        />
+      )}
 
       {/* Status Bar */}
       <div className="statusbar">
