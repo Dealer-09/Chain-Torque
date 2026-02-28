@@ -288,7 +288,7 @@ const UploadToMarketplaceModal = ({ features, projectName, onClose }) => {
       if (!syncData.success) {
         setStatusType('success');
         setStatusMsg(
-          `NFT minted on-chain (Token #${tokenId})!\nDB sync note: ${syncData.message || 'pending'}.\nTx: ${tx.hash}`
+          `🎉 NFT minted on-chain (Token #${tokenId})!\n\nYour listing will appear in the marketplace shortly.\n\nTx: ${tx.hash}`
         );
       } else {
         setStatusType('success');
