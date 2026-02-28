@@ -75,6 +75,37 @@ app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/ai', aiRoutes);
 
+// ============================================================
+// MODEL PROXY — bypasses CORS on IPFS/Lighthouse gateway
+// GET /api/proxy-model?url=<encodedUrl>
+// ============================================================
+app.get('/api/proxy-model', async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) {
+    return res.status(400).json({ error: 'Missing url query param' });
+  }
+  try {
+    const https = require('https');
+    const http = require('http');
+    const urlObj = new URL(targetUrl);
+    const proto = urlObj.protocol === 'https:' ? https : http;
+
+    proto.get(targetUrl, (upstream) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Type', upstream.headers['content-type'] || 'model/gltf-binary');
+      if (upstream.headers['content-length']) {
+        res.setHeader('Content-Length', upstream.headers['content-length']);
+      }
+      upstream.pipe(res);
+    }).on('error', (err) => {
+      console.error('[Proxy] Fetch error:', err.message);
+      res.status(502).json({ error: 'Failed to fetch model', detail: err.message });
+    });
+  } catch (err) {
+    res.status(400).json({ error: 'Invalid URL', detail: err.message });
+  }
+});
+
 // Web3 status endpoint
 app.get('/api/web3/status', (req, res) => {
   try {
