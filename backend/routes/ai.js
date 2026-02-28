@@ -109,7 +109,12 @@ router.post('/generate-3d', upload.single('image'), async (req, res) => {
 });
 
 const { Groq } = require('groq-sdk');
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+let _groq = null;
+const getGroq = () => {
+    if (!process.env.GROQ_API_KEY) throw new Error('GROQ_API_KEY env var is not set');
+    if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    return _groq;
+};
 
 /**
  * @route POST /api/ai/torquy
@@ -184,7 +189,7 @@ Only output valid JSON, with absolutely no markdown wrapping, thinking text, or 
         // Add the current prompt
         messages.push({ role: 'user', content: prompt });
 
-        const completion = await groq.chat.completions.create({
+        const completion = await getGroq().chat.completions.create({
             messages: messages,
             model: 'llama-3.1-8b-instant',
             temperature: 0.1,
