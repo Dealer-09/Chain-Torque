@@ -1,27 +1,28 @@
 import { motion } from 'framer-motion'
+import { Link } from 'react-router-dom'
 
 export default function Collections() {
     const collections = [
         {
             title: 'Mechanical Parts',
             desc: 'Precision-engineered gears, joints, and industrial components for manufacturing workflows.',
-            icon: 'fa-cog',
+            image: '/images/collections/mechanical.png',
             accentColor: 'var(--accent-primary)',
-            iconBg: 'rgba(13, 148, 136, 0.1)',
+            categoryId: 'mechanical'
         },
         {
             title: 'Architectural',
             desc: 'Stunning 3D building models, urban layouts, and interior designs for architects.',
-            icon: 'fa-building',
+            image: '/images/collections/architectural.png',
             accentColor: 'var(--accent-blue)',
-            iconBg: 'rgba(59, 110, 246, 0.1)',
+            categoryId: 'architectural'
         },
         {
             title: '3D Printables',
             desc: 'Optimized, manifold models ready for immediate 3D printing and prototyping.',
-            icon: 'fa-print',
+            image: '/images/collections/printables.png',
             accentColor: 'var(--accent-secondary)',
-            iconBg: 'rgba(212, 160, 83, 0.1)',
+            categoryId: 'printables'
         },
     ]
 
@@ -60,23 +61,38 @@ export default function Collections() {
                             whileHover={{ y: -6 }}
                         >
                             {/* Top accent bar */}
-                            <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                            <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-2xl z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                                 style={{ background: collection.accentColor }} />
 
-                            <div className="card-icon" style={{ background: collection.iconBg, color: collection.accentColor }}>
-                                <i className={`fas ${collection.icon}`} />
+                            {/* Image Header */}
+                            <div className="relative h-48 w-full overflow-hidden rounded-t-2xl mb-5" style={{ borderBottom: '1px solid var(--card-border)' }}>
+                                <img
+                                    src={collection.image}
+                                    alt={collection.title}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                />
+                                {/* Overlay gradient */}
+                                <div className="absolute inset-0 bg-gradient-to-t from-[var(--glass-bg)] to-transparent opacity-60" />
                             </div>
 
-                            <h3 className="text-xl font-heading font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-                                {collection.title}
-                            </h3>
-                            <p className="text-sm mb-6 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                                {collection.desc}
-                            </p>
-                            <a href="#" className="font-semibold text-sm flex items-center gap-2 group-hover:gap-3 transition-all duration-300"
-                                style={{ color: collection.accentColor }}>
-                                View Collection <i className="fas fa-chevron-right text-xs" />
-                            </a>
+                            <div className="px-6 pb-6">
+                                <h3 className="text-xl font-heading font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+                                    {collection.title}
+                                </h3>
+                                <p className="text-sm mb-6 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                                    {collection.desc}
+                                </p>
+                                
+                                {/* The user wants 'View Collection' to redirect to see the images. We'll anchor it to the gallery showcase section. */}
+                                <button
+                                    onClick={() => {
+                                        document.getElementById('showcase')?.scrollIntoView({ behavior: 'smooth' })
+                                    }}
+                                    className="font-semibold text-sm flex items-center gap-2 group-hover:gap-3 transition-all duration-300"
+                                    style={{ color: collection.accentColor }}>
+                                    View Collection <i className="fas fa-chevron-right text-xs" />
+                                </button>
+                            </div>
                         </motion.div>
                     ))}
                 </div>
