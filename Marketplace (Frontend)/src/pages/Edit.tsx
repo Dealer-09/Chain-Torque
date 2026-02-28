@@ -5,10 +5,22 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { WalletConnectionDialog } from '@/components/ui/wallet-connection-dialog';
-import { Plus, Loader2, AlertCircle, Download, Star, Edit3, Wallet } from 'lucide-react';
+import { Plus, Loader2, AlertCircle, Download, Star, Edit3, Wallet, Tag } from 'lucide-react';
 import apiService from '@/services/apiService';
 import { getCadUrl } from '@/lib/urls';
 import { useWalletAddress } from '@/hooks/useWalletAddress';
+import { web3Service } from '@/services/web3Service';
+import { useToast } from '@/components/ui/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 // Fallback images
 import cadGear from '@/assets/cad-gear.jpg';
 import cadDrone from '@/assets/cad-drone.jpg';
@@ -38,6 +50,13 @@ const Edit = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showWalletDialog, setShowWalletDialog] = useState(false);
+  const { toast } = useToast();
+
+  // Relist Modal State
+  const [isRelistModalOpen, setIsRelistModalOpen] = useState(false);
+  const [selectedRelistItem, setSelectedRelistItem] = useState<PurchasedItem | null>(null);
+  const [relistPrice, setRelistPrice] = useState('0.05');
+  const [isRelisting, setIsRelisting] = useState(false);
 
   useEffect(() => {
     loadPurchasedItems();
@@ -194,6 +213,56 @@ const Edit = () => {
     }
   };
 
+  const handleOpenRelistModal = (item: PurchasedItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedRelistItem(item);
+    // Suggest a default higher price or current floor
+    setRelistPrice((parseFloat(item.price.replace(' ETH', '')) * 1.5).toFixed(4) || '0.05');
+    setIsRelistModalOpen(true);
+  };
+
+  const handleRelistSubmit = async () => {
+    if (!selectedRelistItem || !relistPrice) return;
+
+    const priceNum = parseFloat(relistPrice);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      toast({
+        title: "Invalid Price",
+        description: "Please enter a valid amount greater than 0.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsRelisting(true);
+      toast({
+        title: "Relisting Started",
+        description: "Please confirm the transaction in your wallet. A small listing fee applies."
+      });
+
+      await web3Service.relistToken(selectedRelistItem.tokenId, priceNum);
+
+      toast({
+        title: "Success! 🎉",
+        description: "Your model has been relisted on the marketplace.",
+      });
+
+      setIsRelistModalOpen(false);
+      // Refresh items to remove the relisted item from "Owned" view since it's now in escrow
+      loadPurchasedItems();
+    } catch (err: any) {
+      console.error("Relist failed:", err);
+      toast({
+        title: "Relist Failed",
+        description: err.reason || err.message || "An error occurred while relisting.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRelisting(false);
+    }
+  };
+
   // Create New Card Component
   const CreateNewCard = () => (
     <Card
@@ -294,6 +363,16 @@ const Edit = () => {
                 {item.downloads} downloads
               </span>
             </div>
+
+            <Button
+              size="sm"
+              variant="default"
+              className="w-full text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              onClick={(e) => handleOpenRelistModal(item, e)}
+            >
+              <Tag className="h-4 w-4 mr-1" />
+              Sell / Relist
+            </Button>
 
             <div className="grid grid-cols-2 gap-2">
               {item.modelUrl && (
@@ -457,6 +536,64 @@ const Edit = () => {
         onClose={() => setShowWalletDialog(false)}
         onConnect={handleWalletConnected}
       />
+
+      {/* Relist Modal */}
+      <Dialog open={isRelistModalOpen} onOpenChange={setIsRelistModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Sell your Model</DialogTitle>
+            <DialogDescription>
+              Relist your purchased item on the marketplace. You will pay a 0.00025 ETH listing fee. Your item will be held in escrow until sold or cancelled.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedRelistItem && (
+            <div className="flex gap-4 items-center mb-4 p-3 bg-secondary/20 rounded-lg">
+              <img
+                src={selectedRelistItem.image}
+                alt={selectedRelistItem.title}
+                className="w-16 h-16 rounded object-cover"
+              />
+              <div className="flex-1 min-w-0">
+                <h4 className="font-medium text-sm truncate">{selectedRelistItem.title}</h4>
+                <p className="text-xs text-muted-foreground">Original: {selectedRelistItem.price}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-4 py-2">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="price" className="text-right">
+                Price (ETH)
+              </Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.001"
+                min="0.001"
+                value={relistPrice}
+                onChange={(e) => setRelistPrice(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRelistModalOpen(false)} disabled={isRelisting}>
+              Cancel
+            </Button>
+            <Button onClick={handleRelistSubmit} disabled={isRelisting}>
+              {isRelisting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Relisting...
+                </>
+              ) : (
+                'Confirm Listing'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>
