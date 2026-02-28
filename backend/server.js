@@ -5,8 +5,8 @@ if (process.env.NODE_ENV !== 'production') {
   process.removeAllListeners('warning');
   process.on('warning', () => { });
 }
-const dns = require('dns');
-dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+// const dns = require('dns');
+// dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
 
 
 const express = require('express');
