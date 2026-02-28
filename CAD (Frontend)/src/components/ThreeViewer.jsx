@@ -1,6 +1,6 @@
-import React, { Suspense, useRef, useState, useImperativeHandle, forwardRef, useEffect } from 'react';
+import React, { Suspense, useRef, useState, useImperativeHandle, forwardRef, useEffect, useCallback } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, Grid, Box, Sphere, Cylinder, Cone, Html, useGLTF, Center } from '@react-three/drei';
+import { OrbitControls, TransformControls, Grid, Box, Sphere, Cylinder, Cone, Html, useGLTF, Center } from '@react-three/drei';
 import * as THREE from 'three';
 import cadGeometryService from '../cad/CADGeometryService';
 import { sampleSketchPoints } from '../utils/geometryUtils';
@@ -21,11 +21,14 @@ const WorkPlane = () => (
   />
 );
 
-// Component to load external GLB/GLTF models
-const LoadedModel = ({ url, onLoad, onModelCaptured }) => {
+// Component to load external GLB/GLTF models — exposes groupRef for TransformControls
+const LoadedModel = forwardRef(({ url, onLoad, onModelCaptured, onClick }, ref) => {
   const groupRef = useRef();
   const { scene } = useGLTF(url, true);
   const capturedRef = useRef(false);
+
+  // Expose the group ref to parent
+  useImperativeHandle(ref, () => groupRef.current);
 
   useEffect(() => {
     if (!scene) return;
@@ -59,7 +62,6 @@ const LoadedModel = ({ url, onLoad, onModelCaptured }) => {
             allIndices.push(idx.getX(i) + indexOffset);
           }
         } else {
-          // Non-indexed geometry: create sequential indices
           for (let i = 0; i < posAttr.count; i++) {
             allIndices.push(i + indexOffset);
           }
@@ -78,23 +80,43 @@ const LoadedModel = ({ url, onLoad, onModelCaptured }) => {
       const meshData = {
         vertices: new Float32Array(allVertices),
         indices: new Uint32Array(allIndices),
-        normals: new Float32Array(allVertices.length) // will be computed by Three.js on export
+        normals: new Float32Array(allVertices.length)
       };
       onModelCaptured(meshData);
     }
   }, [scene, onLoad, onModelCaptured]);
 
-  return (
-    <Center>
-      <primitive object={scene.clone()} />
-    </Center>
-  );
-};
+  // Center the model using bounding box
+  const centeredScene = React.useMemo(() => {
+    const clone = scene.clone();
+    const box = new THREE.Box3().setFromObject(clone);
+    const center = box.getCenter(new THREE.Vector3());
+    clone.position.sub(center);
+    return clone;
+  }, [scene]);
 
-// Camera controller
-const CameraController = forwardRef((props, ref) => {
+  return (
+    <group
+      ref={groupRef}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (onClick) onClick(groupRef.current);
+      }}
+    >
+      <primitive object={centeredScene} />
+    </group>
+  );
+});
+
+// Camera controller — exposes orbit controls ref so TransformControls can disable it
+const CameraController = forwardRef(({ orbitRef }, ref) => {
   const { camera } = useThree();
   const controlsRef = useRef();
+
+  // Sync internal ref with external orbitRef
+  useEffect(() => {
+    if (orbitRef) orbitRef.current = controlsRef.current;
+  }, [controlsRef.current]);
 
   useImperativeHandle(ref, () => ({
     fitToScreen: () => {
@@ -128,7 +150,6 @@ const CameraController = forwardRef((props, ref) => {
       controlsRef.current?.update();
     },
     zoomIn: () => {
-      // Move camera 20% closer to target
       const pos = camera.position.clone();
       const target = controlsRef.current?.target || { x: 0, y: 1, z: 0 };
       const direction = pos.clone().sub(target).normalize();
@@ -138,7 +159,6 @@ const CameraController = forwardRef((props, ref) => {
       controlsRef.current?.update();
     },
     zoomOut: () => {
-      // Move camera 20% further from target
       const pos = camera.position.clone();
       const target = controlsRef.current?.target || { x: 0, y: 1, z: 0 };
       const direction = pos.clone().sub(target).normalize();
@@ -227,64 +247,190 @@ const LoadingSpinner = () => (
   </Html>
 );
 
-const Scene = ({ cameraRef, modelUrl, onModelLoad, onModelCaptured, extrudedGeometries, sketches }) => (
-  <>
-    <ambientLight intensity={0.4} />
-    <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
-    <pointLight position={[-10, -10, -10]} intensity={0.3} />
-    <CameraController ref={cameraRef} />
-    <WorkPlane />
+// Scene component — now manages selection + transform state
+const Scene = ({ cameraRef, orbitRef, modelUrl, onModelLoad, onModelCaptured, extrudedGeometries, sketches }) => {
+  const [selectedObject, setSelectedObject] = useState(null);
+  const [transformMode, setTransformMode] = useState('translate'); // translate, rotate, scale
+  const transformRef = useRef();
+  const modelRef = useRef();
 
-    {/* External model */}
-    {modelUrl && (
-      <Suspense fallback={<LoadingSpinner />}>
-        <LoadedModel url={modelUrl} onLoad={onModelLoad} onModelCaptured={onModelCaptured} />
-      </Suspense>
-    )}
+  // Disable orbit controls while dragging the transform gizmo
+  useEffect(() => {
+    const tc = transformRef.current;
+    if (!tc) return;
 
-    {/* Extruded geometries from OpenCascade */}
-    {extrudedGeometries.map((geo, i) => (
-      <ExtrudedMesh key={geo.id || i} meshData={geo.meshData} color={geo.color || '#4ecdc4'} />
-    ))}
+    const onDragStart = () => {
+      if (orbitRef?.current) orbitRef.current.enabled = false;
+    };
+    const onDragEnd = () => {
+      if (orbitRef?.current) orbitRef.current.enabled = true;
+    };
 
-    {/* Sketch previews (wireframes) */}
-    {sketches?.filter(s => !s.extruded).map((sketch, i) => (
-      <SketchPreview key={sketch.id || i} sketch={sketch} />
-    ))}
+    tc.addEventListener('dragging-changed', (event) => {
+      if (event.value) onDragStart();
+      else onDragEnd();
+    });
 
-    {/* Axis indicator */}
-    <group position={[-8, 0, 8]}>
-      <Cylinder args={[0.05, 0.05, 2]} position={[1, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <meshStandardMaterial color="#ff0000" />
-      </Cylinder>
-      <Cone args={[0.1, 0.3]} position={[2.2, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
-        <meshStandardMaterial color="#ff0000" />
-      </Cone>
-      <Cylinder args={[0.05, 0.05, 2]} position={[0, 1, 0]}>
-        <meshStandardMaterial color="#00ff00" />
-      </Cylinder>
-      <Cone args={[0.1, 0.3]} position={[0, 2.2, 0]}>
-        <meshStandardMaterial color="#00ff00" />
-      </Cone>
-      <Cylinder args={[0.05, 0.05, 2]} position={[0, 0, 1]} rotation={[Math.PI / 2, 0, 0]}>
-        <meshStandardMaterial color="#0000ff" />
-      </Cylinder>
-      <Cone args={[0.1, 0.3]} position={[0, 0, 2.2]} rotation={[Math.PI / 2, 0, 0]}>
-        <meshStandardMaterial color="#0000ff" />
-      </Cone>
-    </group>
-  </>
-);
+    return () => {
+      tc.removeEventListener('dragging-changed', onDragStart);
+      tc.removeEventListener('dragging-changed', onDragEnd);
+    };
+  }, [selectedObject, orbitRef]);
+
+  // W/E/R key switching for transform mode
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'w' && !e.ctrlKey) setTransformMode('translate');
+      if (e.key === 'e' && !e.ctrlKey) setTransformMode('rotate');
+      if (e.key === 'r' && !e.ctrlKey) setTransformMode('scale');
+      // Deselect on Escape
+      if (e.key === 'Escape') setSelectedObject(null);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
+  // Click on empty space to deselect
+  const handleMiss = useCallback((e) => {
+    // Only deselect if clicking the background, not a mesh
+    if (e.object?.type === 'GridHelper' || !e.object) {
+      setSelectedObject(null);
+    }
+  }, []);
+
+  return (
+    <>
+      <ambientLight intensity={0.4} />
+      <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
+      <pointLight position={[-10, -10, -10]} intensity={0.3} />
+      <CameraController ref={cameraRef} orbitRef={orbitRef} />
+      <WorkPlane />
+
+      {/* Click background to deselect */}
+      <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={false}
+        onClick={() => setSelectedObject(null)}>
+        <planeGeometry args={[100, 100]} />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
+
+      {/* External model */}
+      {modelUrl && (
+        <Suspense fallback={<LoadingSpinner />}>
+          <LoadedModel
+            ref={modelRef}
+            url={modelUrl}
+            onLoad={onModelLoad}
+            onModelCaptured={onModelCaptured}
+            onClick={(obj) => setSelectedObject(obj)}
+          />
+        </Suspense>
+      )}
+
+      {/* TransformControls gizmo — attached to selected object */}
+      {selectedObject && (
+        <TransformControls
+          ref={transformRef}
+          object={selectedObject}
+          mode={transformMode}
+          size={0.8}
+        />
+      )}
+
+      {/* Extruded geometries from OpenCascade */}
+      {extrudedGeometries.map((geo, i) => (
+        <ExtrudedMesh key={geo.id || i} meshData={geo.meshData} color={geo.color || '#4ecdc4'} />
+      ))}
+
+      {/* Sketch previews (wireframes) */}
+      {sketches?.filter(s => !s.extruded).map((sketch, i) => (
+        <SketchPreview key={sketch.id || i} sketch={sketch} />
+      ))}
+
+      {/* Axis indicator */}
+      <group position={[-8, 0, 8]}>
+        <Cylinder args={[0.05, 0.05, 2]} position={[1, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <meshStandardMaterial color="#ff0000" />
+        </Cylinder>
+        <Cone args={[0.1, 0.3]} position={[2.2, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+          <meshStandardMaterial color="#ff0000" />
+        </Cone>
+        <Cylinder args={[0.05, 0.05, 2]} position={[0, 1, 0]}>
+          <meshStandardMaterial color="#00ff00" />
+        </Cylinder>
+        <Cone args={[0.1, 0.3]} position={[0, 2.2, 0]}>
+          <meshStandardMaterial color="#00ff00" />
+        </Cone>
+        <Cylinder args={[0.05, 0.05, 2]} position={[0, 0, 1]} rotation={[Math.PI / 2, 0, 0]}>
+          <meshStandardMaterial color="#0000ff" />
+        </Cylinder>
+        <Cone args={[0.1, 0.3]} position={[0, 0, 2.2]} rotation={[Math.PI / 2, 0, 0]}>
+          <meshStandardMaterial color="#0000ff" />
+        </Cone>
+      </group>
+
+      {/* Transform mode indicator overlay */}
+      {selectedObject && (
+        <Html position={[0, 0, 0]} center style={{ pointerEvents: 'none' }}>
+          <div style={{
+            position: 'fixed',
+            bottom: '60px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(20, 20, 20, 0.95)',
+            padding: '8px 18px',
+            borderRadius: '8px',
+            border: '1px solid rgba(100, 100, 100, 0.5)',
+            fontSize: '12px',
+            color: '#fff',
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'center',
+            pointerEvents: 'auto',
+            userSelect: 'none',
+            whiteSpace: 'nowrap'
+          }}>
+            <span style={{ color: '#888' }}>Mode:</span>
+            <span style={{
+              color: transformMode === 'translate' ? '#4facfe' : '#888',
+              fontWeight: transformMode === 'translate' ? '700' : '400',
+              cursor: 'pointer'
+            }} onClick={() => setTransformMode('translate')}>
+              [W] Move
+            </span>
+            <span style={{
+              color: transformMode === 'rotate' ? '#4facfe' : '#888',
+              fontWeight: transformMode === 'rotate' ? '700' : '400',
+              cursor: 'pointer'
+            }} onClick={() => setTransformMode('rotate')}>
+              [E] Rotate
+            </span>
+            <span style={{
+              color: transformMode === 'scale' ? '#4facfe' : '#888',
+              fontWeight: transformMode === 'scale' ? '700' : '400',
+              cursor: 'pointer'
+            }} onClick={() => setTransformMode('scale')}>
+              [R] Scale
+            </span>
+            <span style={{ color: '#666', marginLeft: '8px' }}>ESC: Deselect</span>
+          </div>
+        </Html>
+      )}
+    </>
+  );
+};
 
 const ThreeViewer = forwardRef((props, ref) => {
   const cameraRef = useRef();
+  const orbitRef = useRef();
   const [cadReady, setCadReady] = useState(false);
 
   const { sketches = [], features = [], modelUrl, onModelLoad, onModelCaptured } = props;
 
   // Get 3D solids from features (extruded via sidebar)
+  // Exclude AI-captured models — they're already rendered by the GLB primitive
   const featureSolids = features
-    .filter(f => f.type === '3d-solid' && f.meshData)
+    .filter(f => f.type === '3d-solid' && f.meshData && f.source !== 'ai-model')
     .map(f => ({ id: f.id, meshData: f.meshData, color: '#4ecdc4' }));
 
   // Initialize CAD service
@@ -312,6 +458,7 @@ const ThreeViewer = forwardRef((props, ref) => {
         <Suspense fallback={<LoadingSpinner />}>
           <Scene
             cameraRef={cameraRef}
+            orbitRef={orbitRef}
             modelUrl={modelUrl}
             onModelLoad={onModelLoad}
             onModelCaptured={onModelCaptured}
@@ -337,9 +484,15 @@ const ThreeViewer = forwardRef((props, ref) => {
         color: '#ccc'
       }}>
         <div style={{ fontWeight: '600', marginBottom: '6px', color: '#fff' }}>Navigation</div>
-        <div>🖱️ LMB: Orbit</div>
+        <div>🖱️ LMB: Orbit / Select</div>
         <div>🖱️ RMB: Pan</div>
         <div>⚙️ Scroll: Zoom</div>
+        <div style={{ marginTop: '6px', borderTop: '1px solid #444', paddingTop: '6px' }}>
+          <div style={{ fontWeight: '600', marginBottom: '4px', color: '#fff' }}>Edit Model</div>
+          <div>Click model to select</div>
+          <div>W: Move • E: Rotate • R: Scale</div>
+          <div>ESC: Deselect</div>
+        </div>
       </div>
 
       {/* Geometry counter */}
