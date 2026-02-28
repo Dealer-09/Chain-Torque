@@ -72,6 +72,22 @@ const App = () => {
     setModelInfo(info);
   };
 
+  // Capture AI model geometry into features for download/save
+  const handleModelCaptured = (meshData) => {
+    // Check if we already captured this model (avoid duplicates)
+    const alreadyCaptured = features.some(f => f.type === '3d-solid' && f.source === 'ai-model');
+    if (alreadyCaptured) return;
+
+    setFeatures(prev => [...prev, {
+      id: `ai_model_${Date.now()}`,
+      type: '3d-solid',
+      name: 'AI Generated Model',
+      source: 'ai-model',
+      meshData,
+      visible: true
+    }]);
+  };
+
   const toggleAIPanel = () => {
     setShowAIPanel(!showAIPanel);
   };
@@ -189,8 +205,23 @@ const App = () => {
     setProjectName(name);
     const projectData = {
       name,
-      features,
+      features: features.map(f => {
+        // meshData contains Float32Arrays which can't be directly JSON serialized
+        // Store as regular arrays for serialization
+        if (f.meshData) {
+          return {
+            ...f,
+            meshData: {
+              vertices: Array.from(f.meshData.vertices),
+              indices: Array.from(f.meshData.indices),
+              normals: Array.from(f.meshData.normals)
+            }
+          };
+        }
+        return f;
+      }),
       viewMode,
+      modelUrl,
       savedAt: new Date().toISOString()
     };
 
@@ -210,7 +241,7 @@ const App = () => {
     const meshFeatures = features.filter(f => f.meshData);
 
     if (meshFeatures.length === 0) {
-      alert('No 3D geometry to export. Draw a sketch and extrude it first!');
+      alert('No 3D geometry to export. Generate an AI model or draw and extrude a sketch first!');
       return;
     }
 
@@ -222,18 +253,20 @@ const App = () => {
       const exportScene = new THREE.Scene();
 
       meshFeatures.forEach((feature, index) => {
-        const { vertices, indices, normals } = feature.meshData;
+        let { vertices, indices, normals } = feature.meshData;
+
+        // Ensure typed arrays (they become regular arrays after JSON save/restore)
+        if (!(vertices instanceof Float32Array)) vertices = new Float32Array(vertices);
+        if (!(indices instanceof Uint32Array)) indices = new Uint32Array(indices);
+        if (normals && !(normals instanceof Float32Array)) normals = new Float32Array(normals);
 
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
         if (indices && indices.length > 0) {
           geometry.setIndex(new THREE.BufferAttribute(indices, 1));
         }
-        if (normals && normals.length > 0) {
-          geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-        } else {
-          geometry.computeVertexNormals();
-        }
+        // Always compute normals for reliable export
+        geometry.computeVertexNormals();
 
         const material = new THREE.MeshStandardMaterial({ color: 0x4ecdc4 });
         const mesh = new THREE.Mesh(geometry, material);
@@ -509,6 +542,7 @@ const App = () => {
               onToolChange={setActiveTool}
               modelUrl={modelUrl}
               onModelLoad={handleModelLoad}
+              onModelCaptured={handleModelCaptured}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
             />

@@ -1,4 +1,3 @@
-// ThreeViewer with Sketch Extrusion Support
 import React, { Suspense, useRef, useState, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, Box, Sphere, Cylinder, Cone, Html, useGLTF, Center } from '@react-three/drei';
@@ -23,23 +22,67 @@ const WorkPlane = () => (
 );
 
 // Component to load external GLB/GLTF models
-const LoadedModel = ({ url, onLoad }) => {
+const LoadedModel = ({ url, onLoad, onModelCaptured }) => {
   const groupRef = useRef();
   const { scene } = useGLTF(url, true);
+  const capturedRef = useRef(false);
 
   useEffect(() => {
-    if (scene && onLoad) {
-      const box = new THREE.Box3().setFromObject(scene);
-      const size = box.getSize(new THREE.Vector3());
-      let count = 0;
-      scene.traverse((child) => {
-        if (child.isMesh && child.geometry?.attributes?.position) {
-          count += child.geometry.attributes.position.count;
+    if (!scene) return;
+
+    const box = new THREE.Box3().setFromObject(scene);
+    const size = box.getSize(new THREE.Vector3());
+    let totalVertexCount = 0;
+
+    // Collect all mesh geometries for capture
+    const allVertices = [];
+    const allIndices = [];
+    let indexOffset = 0;
+
+    scene.traverse((child) => {
+      if (child.isMesh && child.geometry?.attributes?.position) {
+        const posAttr = child.geometry.attributes.position;
+        totalVertexCount += posAttr.count;
+
+        // Copy vertices (applying world matrix for correct positioning)
+        const worldMatrix = child.matrixWorld;
+        for (let i = 0; i < posAttr.count; i++) {
+          const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+          v.applyMatrix4(worldMatrix);
+          allVertices.push(v.x, v.y, v.z);
         }
-      });
-      onLoad({ vertices: count, size });
+
+        // Copy indices (offset by previous vertex count)
+        const idx = child.geometry.index;
+        if (idx) {
+          for (let i = 0; i < idx.count; i++) {
+            allIndices.push(idx.getX(i) + indexOffset);
+          }
+        } else {
+          // Non-indexed geometry: create sequential indices
+          for (let i = 0; i < posAttr.count; i++) {
+            allIndices.push(i + indexOffset);
+          }
+        }
+        indexOffset += posAttr.count;
+      }
+    });
+
+    if (onLoad) {
+      onLoad({ vertices: totalVertexCount, size });
     }
-  }, [scene, onLoad]);
+
+    // Capture mesh data into features (only once per URL)
+    if (onModelCaptured && !capturedRef.current && allVertices.length > 0) {
+      capturedRef.current = true;
+      const meshData = {
+        vertices: new Float32Array(allVertices),
+        indices: new Uint32Array(allIndices),
+        normals: new Float32Array(allVertices.length) // will be computed by Three.js on export
+      };
+      onModelCaptured(meshData);
+    }
+  }, [scene, onLoad, onModelCaptured]);
 
   return (
     <Center>
@@ -184,7 +227,7 @@ const LoadingSpinner = () => (
   </Html>
 );
 
-const Scene = ({ cameraRef, modelUrl, onModelLoad, extrudedGeometries, sketches }) => (
+const Scene = ({ cameraRef, modelUrl, onModelLoad, onModelCaptured, extrudedGeometries, sketches }) => (
   <>
     <ambientLight intensity={0.4} />
     <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
@@ -195,7 +238,7 @@ const Scene = ({ cameraRef, modelUrl, onModelLoad, extrudedGeometries, sketches 
     {/* External model */}
     {modelUrl && (
       <Suspense fallback={<LoadingSpinner />}>
-        <LoadedModel url={modelUrl} onLoad={onModelLoad} />
+        <LoadedModel url={modelUrl} onLoad={onModelLoad} onModelCaptured={onModelCaptured} />
       </Suspense>
     )}
 
@@ -237,7 +280,7 @@ const ThreeViewer = forwardRef((props, ref) => {
   const cameraRef = useRef();
   const [cadReady, setCadReady] = useState(false);
 
-  const { sketches = [], features = [], modelUrl, onModelLoad } = props;
+  const { sketches = [], features = [], modelUrl, onModelLoad, onModelCaptured } = props;
 
   // Get 3D solids from features (extruded via sidebar)
   const featureSolids = features
@@ -271,6 +314,7 @@ const ThreeViewer = forwardRef((props, ref) => {
             cameraRef={cameraRef}
             modelUrl={modelUrl}
             onModelLoad={onModelLoad}
+            onModelCaptured={onModelCaptured}
             extrudedGeometries={featureSolids}
             sketches={sketches}
           />

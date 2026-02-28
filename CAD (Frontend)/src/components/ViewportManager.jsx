@@ -1608,6 +1608,7 @@ const ViewportManager = forwardRef(({
   onToolChange,
   modelUrl,
   onModelLoad,
+  onModelCaptured,
   viewMode: viewModeProp,
   onViewModeChange
 }, ref) => {
@@ -1862,6 +1863,7 @@ const ViewportManager = forwardRef(({
             sketches={sketches}
             modelUrl={modelUrl}
             onModelLoad={onModelLoad}
+            onModelCaptured={onModelCaptured}
             activeTool={activeTool}
           />
         )}
