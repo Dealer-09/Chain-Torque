@@ -1,5 +1,10 @@
 // server.js (Refactored Phase 2)
 
+// Force Google DNS before anything else to fix ECONNREFUSED on MongoDB Atlas SRV lookups.
+// This bypasses the system DNS which may not support SRV records properly.
+const dns = require('dns');
+dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+
 // Suppress Node.js warnings in development
 if (process.env.NODE_ENV !== 'production') {
   process.removeAllListeners('warning');
@@ -20,8 +25,13 @@ if (process.env.NODE_ENV !== 'production') {
   dotenv.config({ path: path.join(__dirname, '..', '.env') });
 }
 
+const http = require('http');
+const { Server } = require('socket.io');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
+const server = http.createServer(app);
+
 
 // Middleware
 app.use(cors({
@@ -63,9 +73,11 @@ app.get('/health', (req, res) => {
 // Routes
 const marketplaceRoutes = require('./routes/marketplace');
 const userRoutes = require('./routes/user');
+const chatRoutes = require('./routes/chat');
 
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Web3 status endpoint
 app.get('/api/web3/status', (req, res) => {
@@ -184,7 +196,72 @@ async function initializeServices() {
   }
 }
 
-app.listen(PORT, () => {
+const io = new Server(server, {
+  cors: {
+    origin: [
+      'http://localhost:8080',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5000',
+      'https://chaintorque-landing.onrender.com',
+      'https://chaintorque-marketplace.onrender.com',
+      'https://chaintorque-cad.onrender.com',
+      'https://chaintorque-backend.onrender.com',
+      process.env.FRONTEND_URL
+    ].filter(Boolean),
+    methods: ["GET", "POST"],
+    credentials: true,
+  }
+});
+
+// Socket.io Events
+io.on('connection', (socket) => {
+  console.log(`[Socket.io] User connected: ${socket.id}`);
+
+  // Join a room based on the user's wallet address
+  socket.on('join_room', (walletAddress) => {
+    if (!walletAddress) return;
+    const room = walletAddress.toLowerCase();
+    socket.join(room);
+    console.log(`[Socket.io] Socket ${socket.id} joined room (wallet): ${room}`);
+  });
+
+  // Handle sending messages
+  socket.on('send_message', async (data) => {
+    try {
+      const { senderWallet, receiverWallet, content } = data;
+      if (!senderWallet || !receiverWallet || !content) {
+        return console.error('[Socket.io] Missing required fields in send_message event.');
+      }
+
+      // 1. Save message to database
+      const Message = require('./models/Message');
+      const newMessage = new Message({
+        senderWallet: senderWallet.toLowerCase(),
+        receiverWallet: receiverWallet.toLowerCase(),
+        content
+      });
+      await newMessage.save();
+
+      // 2. Emit message to the receiver's room
+      const receiverRoom = receiverWallet.toLowerCase();
+      io.to(receiverRoom).emit('receive_message', newMessage);
+
+      // 3. Emit message back to sender (to confirm delivery across their tabs if logged in multiple places)
+      const senderRoom = senderWallet.toLowerCase();
+      io.to(senderRoom).emit('receive_message', newMessage);
+
+    } catch (error) {
+      console.error('[Socket.io] Error in send_message event:', error.message);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`[Socket.io] User disconnected: ${socket.id}`);
+  });
+});
+
+server.listen(PORT, () => {
   console.log(`ChainTorque Backend started on port ${PORT}`);
   initializeServices();
 });

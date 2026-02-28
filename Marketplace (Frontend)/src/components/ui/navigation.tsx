@@ -60,14 +60,15 @@ export function Navigation() {
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/edit', label: 'Edit' },
     { path: '/upload', label: 'Upload' },
+    { path: '/chat', label: 'Chat' },
   ];
 
   return (
     <>
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled
-            ? 'glass shadow-[var(--shadow-card)]'
-            : 'bg-background/60 backdrop-blur-sm'
+          ? 'glass shadow-[var(--shadow-card)]'
+          : 'bg-background/60 backdrop-blur-sm'
           }`}
       >
         <div className='container mx-auto px-6 h-16 flex items-center justify-between'>
@@ -86,8 +87,8 @@ export function Navigation() {
                 <Link
                   to={link.path}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive(link.path)
-                      ? 'text-primary bg-primary/10'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    ? 'text-primary bg-primary/10'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                     }`}
                 >
                   {link.label}
@@ -137,8 +138,8 @@ export function Navigation() {
       {/* Scroll To Top Button */}
       <button
         className={`fixed bottom-6 right-6 p-3 rounded-full bg-primary text-primary-foreground shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${showScrollButton
-            ? 'opacity-100 translate-y-0'
-            : 'opacity-0 translate-y-4 pointer-events-none'
+          ? 'opacity-100 translate-y-0'
+          : 'opacity-0 translate-y-4 pointer-events-none'
           }`}
         onClick={scrollToTop}
         aria-label='Scroll to top'

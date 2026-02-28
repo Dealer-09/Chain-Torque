@@ -22,6 +22,7 @@ import Edit from './pages/Edit';
 import NotFound from './pages/NotFound';
 import BackendStatus from './components/BackendStatus';
 import SignUp from './pages/SignUp';
+import ChatPage from './pages/ChatPage';
 import { getLandingUrl } from '@/lib/urls';
 
 const queryClient = new QueryClient();
@@ -89,6 +90,14 @@ const AppContent = () => {
             element={
               <SignedIn>
                 <Upload />
+              </SignedIn>
+            }
+          />
+          <Route
+            path='/chat'
+            element={
+              <SignedIn>
+                <ChatPage />
               </SignedIn>
             }
           />
