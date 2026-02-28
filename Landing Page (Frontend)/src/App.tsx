@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react'
-import { gsap } from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Header from './components/Header'
 import Hero from './components/Hero'
 import ModelShowcase from './components/ModelShowcase'
@@ -14,9 +12,6 @@ import Pricing from './components/Pricing'
 import Footer from './components/Footer'
 import BackToTop from './components/BackToTop'
 import { useScrollReveal } from './hooks/useScrollReveal'
-
-// Register GSAP plugins globally
-gsap.registerPlugin(ScrollTrigger)
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
