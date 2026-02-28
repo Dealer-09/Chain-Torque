@@ -36,6 +36,7 @@ export interface MarketplaceItem {
   createdAt: string;
   blockchain?: string;
   format?: string;
+  royalty?: number;
 }
 
 // Backend URLs for fallback support
@@ -250,6 +251,7 @@ class ApiService {
     modelUrl: string;
     tokenURI: string;
     username?: string;
+    royalty?: number;
   }): Promise<ApiResponse<{ tokenId: number; seller: string }>> {
     return this.request('/marketplace/sync-creation', {
       method: 'POST',

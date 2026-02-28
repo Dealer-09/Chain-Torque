@@ -12,6 +12,7 @@ interface UploadData {
   description: string;
   category: string;
   price: string;
+  royalty: string;
   files: File[];
   images: File[];
   tags: string[];
@@ -26,6 +27,7 @@ const Upload: React.FC = () => {
     description: '',
     category: '',
     price: '',
+    royalty: '0',
     files: [],
     images: [],
     tags: [],
@@ -193,7 +195,7 @@ const Upload: React.FC = () => {
         tokenURI,
         parseFloat(uploadData.price),
         categoryId,
-        0 // royalty percentage (can be made configurable)
+        parseInt((parseFloat(uploadData.royalty) * 100).toString(), 10) // Convert % to BPS (e.g., 5.5% = 550)
       );
 
       if (!mintResult.transactionHash) {
@@ -243,7 +245,8 @@ const Upload: React.FC = () => {
         images,
         modelUrl,
         tokenURI,
-        username
+        username,
+        royalty: parseFloat(uploadData.royalty) || 0
       });
 
       if (!syncResponse.success) {
@@ -260,6 +263,7 @@ const Upload: React.FC = () => {
         description: '',
         category: '',
         price: '',
+        royalty: '0',
         files: [],
         images: [],
         tags: [],
@@ -398,6 +402,50 @@ const Upload: React.FC = () => {
       </div>
 
       <div>
+        <label className={labelClasses}>Creator Royalty *</label>
+        <p className='text-xs text-muted-foreground mb-3'>
+          Set the percentage you will earn on all future secondary sales (0% - 10%).
+        </p>
+        <div className='flex items-center gap-4'>
+          <input
+            type='range'
+            min='0'
+            max='10'
+            step='0.5'
+            value={uploadData.royalty}
+            onChange={e => handleInputChange('royalty', e.target.value)}
+            className='w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary'
+          />
+          <span className='font-medium text-foreground w-12 text-right'>
+            {uploadData.royalty}%
+          </span>
+        </div>
+      </div>
+
+      {uploadData.price && parseFloat(uploadData.price) > 0 && (
+        <div className='p-4 rounded-lg bg-primary/5 border border-primary/20 mt-4'>
+          <p className='text-sm font-medium text-primary mb-2'>Earnings Breakdown (Primary Sale)</p>
+          <div className='space-y-1 text-sm'>
+            <div className='flex justify-between text-muted-foreground'>
+              <span>Listing Price</span>
+              <span>{uploadData.price} ETH</span>
+            </div>
+            <div className='flex justify-between text-red-500/80'>
+              <span>Platform Fee (2.5%)</span>
+              <span>-{(parseFloat(uploadData.price) * 0.025).toFixed(4)} ETH</span>
+            </div>
+            <div className='flex justify-between text-primary font-medium pt-2 border-t border-primary/10 mt-2'>
+              <span>You Earn</span>
+              <span>{(parseFloat(uploadData.price) * 0.975).toFixed(4)} ETH</span>
+            </div>
+          </div>
+          <p className='text-xs text-muted-foreground mt-3 pt-3 border-t border-primary/10'>
+            On secondary sales, you will earn <span className='font-medium text-primary'>{uploadData.royalty}%</span> of the sale price.
+          </p>
+        </div>
+      )}
+
+      <div>
         <label className={labelClasses}>Tags</label>
         <div className='flex flex-wrap gap-2 mb-3'>
           {uploadData.tags.map((tag, index) => (
@@ -529,6 +577,10 @@ const Upload: React.FC = () => {
           <div>
             <p className='text-xs text-muted-foreground uppercase tracking-wide'>Price</p>
             <p className='font-medium text-foreground mt-1'>{uploadData.price} ETH</p>
+          </div>
+          <div>
+            <p className='text-xs text-muted-foreground uppercase tracking-wide'>Royalty</p>
+            <p className='font-medium text-foreground mt-1'>{uploadData.royalty}%</p>
           </div>
           <div>
             <p className='text-xs text-muted-foreground uppercase tracking-wide'>Files</p>

@@ -140,6 +140,18 @@ class EventListener {
                 // Ignore lookup error, keep default
             }
 
+            // Fetch true royalty from contract
+            let royaltyPercentage = 0;
+            try {
+                const itemData = await contract.getMarketItem(tokenId);
+                if (itemData && itemData.royalty) {
+                    royaltyPercentage = Number(itemData.royalty) / 100; // Convert BPS to %
+                    console.log(`[EventListener] Item #${tokenId} Royalty: ${royaltyPercentage}%`);
+                }
+            } catch (e) {
+                console.warn(`[EventListener] Failed to fetch royalty for #${tokenId}: ${e.message}`);
+            }
+
             const newItem = new MarketItem({
                 tokenId: Number(tokenId),
                 title,
@@ -154,6 +166,7 @@ class EventListener {
                 owner: seller.toLowerCase(),
                 creator: seller.toLowerCase(),
                 username: creatorName,
+                royalty: royaltyPercentage,
                 status: 'active',
                 transactionHash: event.transactionHash,
                 blockNumber: event.blockNumber
@@ -208,8 +221,21 @@ class EventListener {
                 console.log(`[EventListener] Recorded transaction for #${tokenId}`);
             }
 
-            // Update User Stats
-            await this.updateStats(seller.toLowerCase(), buyer.toLowerCase(), Number(ethers.formatEther(price)));
+            // Update User Stats dynamically handling royalties
+            const priceEth = Number(ethers.formatEther(price));
+            const platformFeeEth = priceEth * 0.025;
+            const royaltyPercentage = item.royalty || 0;
+            const royaltyEth = priceEth * (royaltyPercentage / 100);
+            const sellerEarnedEth = priceEth - platformFeeEth - royaltyEth;
+
+            await this.updateDynamicStats(
+                seller.toLowerCase(),
+                buyer.toLowerCase(),
+                item.creator ? item.creator.toLowerCase() : null,
+                priceEth,
+                sellerEarnedEth,
+                royaltyEth
+            );
 
         } catch (err) {
             console.error('[EventListener] Error processing MarketItemSold:', err);
@@ -255,7 +281,7 @@ class EventListener {
         }
     }
 
-    async updateStats(sellerAddr, buyerAddr, priceEth) {
+    async updateDynamicStats(sellerAddr, buyerAddr, creatorAddr, priceEth, sellerEarnedEth, royaltyEth) {
         try {
             // Update Buyer
             await User.updateOne(
@@ -268,7 +294,15 @@ class EventListener {
             if (sellerAddr && !/^0x0+$/.test(sellerAddr)) {
                 await User.updateOne(
                     { walletAddress: sellerAddr },
-                    { $inc: { 'stats.totalSold': 1, 'stats.totalEarned': priceEth * 0.975 } }
+                    { $inc: { 'stats.totalSold': 1, 'stats.totalEarned': sellerEarnedEth } }
+                );
+            }
+
+            // Update Creator (Royalty)
+            if (royaltyEth > 0 && creatorAddr && !/^0x0+$/.test(creatorAddr)) {
+                await User.updateOne(
+                    { walletAddress: creatorAddr },
+                    { $inc: { 'stats.totalEarned': royaltyEth } } // Could add stats.totalRoyalties in schema later if desired
                 );
             }
         } catch (e) {

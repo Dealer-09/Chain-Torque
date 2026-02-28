@@ -147,7 +147,8 @@ router.post('/sync-creation', async (req, res) => {
             images,
             modelUrl,
             tokenURI,
-            username
+            username,
+            royalty
         } = req.body;
 
         // Validate required fields
@@ -229,6 +230,7 @@ router.post('/sync-creation', async (req, res) => {
             creator: walletAddress.toLowerCase(), // Original creator - for royalties and filtering
             owner: walletAddress.toLowerCase(), // Initially owner = seller = creator
             username: username || 'Creator',
+            royalty: parseFloat(royalty) || 0,
             createdAt: new Date(),
             isPermanent: true,
             storage: 'ipfs',
@@ -436,10 +438,17 @@ router.post('/sync-purchase', async (req, res) => {
                 buyer = new User({ walletAddress: buyerAddress.toLowerCase() });
                 await buyer.save();
             }
+            const priceEth = parseFloat(truePrice);
             await User.updateOne(
                 { _id: buyer._id },
-                { $inc: { 'stats.totalPurchased': 1, 'stats.totalSpent': parseFloat(truePrice) } }
+                { $inc: { 'stats.totalPurchased': 1, 'stats.totalSpent': priceEth } }
             );
+
+            // Calculate earnings
+            const platformFeeEth = priceEth * 0.025;
+            const royaltyPercentage = item.royalty || 0;
+            const royaltyEth = priceEth * (royaltyPercentage / 100);
+            const sellerEarnedEth = priceEth - platformFeeEth - royaltyEth;
 
             // Use event seller to credit the correct person
             const eventSellerAddress = soldEvent.args.seller.toLowerCase();
@@ -448,7 +457,33 @@ router.post('/sync-purchase', async (req, res) => {
                 if (seller) {
                     await User.updateOne(
                         { _id: seller._id },
-                        { $inc: { 'stats.totalSold': 1, 'stats.totalEarned': parseFloat(truePrice) * 0.975 } }
+                        { $inc: { 'stats.totalSold': 1, 'stats.totalEarned': sellerEarnedEth } }
+                    );
+                } else {
+                    // Create if doesn't exist to ensure stats track
+                    let newSeller = new User({ walletAddress: eventSellerAddress });
+                    await newSeller.save();
+                    await User.updateOne(
+                        { _id: newSeller._id },
+                        { $inc: { 'stats.totalSold': 1, 'stats.totalEarned': sellerEarnedEth } }
+                    );
+                }
+            }
+
+            // Pay royalty to original creator
+            if (royaltyEth > 0 && item.creator && item.creator !== '0x0000000000000000000000000000000000000000') {
+                let creatorUser = await User.findByWallet(item.creator.toLowerCase());
+                if (creatorUser) {
+                    await User.updateOne(
+                        { _id: creatorUser._id },
+                        { $inc: { 'stats.totalEarned': royaltyEth } }
+                    );
+                } else {
+                    let newCreator = new User({ walletAddress: item.creator.toLowerCase() });
+                    await newCreator.save();
+                    await User.updateOne(
+                        { _id: newCreator._id },
+                        { $inc: { 'stats.totalEarned': royaltyEth } }
                     );
                 }
             }

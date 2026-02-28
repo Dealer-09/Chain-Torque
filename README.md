@@ -12,7 +12,7 @@ ChainTorque is a comprehensive Web3 platform that solves critical problems in th
 - **🎮 Interactive 3D Previews**: Inspect models before purchasing
 - **🎨 Browser-Based CAD Editor**: Professional 2D sketching + 3D modeling with OpenCascade.js
 - **🌐 Decentralized Storage**: IPFS integration via Lighthouse for censorship resistance
-- **💰 Direct Creator Payments**: 97.5% to seller, 2.5% platform fee via smart contracts
+- **💰 Direct Creator Payments**: Customizable creator royalties + 2.5% platform fee via smart contracts
 
 ## 🏗️ **Project Structure**
 
@@ -109,7 +109,8 @@ bun run dev:cad          # CAD editor (Port 3001)
 - [x] Bun monorepo with npm workspaces
 - [x] 3D marketplace with NFT minting & purchasing
 - [x] Decentralized purchase flow (MetaMask → Smart Contract → IPFS)
-- [x] ETH payments: 97.5% to seller, 2.5% platform fee
+- [x] ETH payments: Configurable creator royalties on secondary sales & 2.5% platform fee
+- [x] Relist/resale functionality for secondary market
 - [x] Smart contract deployed on Sepolia testnet
 - [x] IPFS storage via Lighthouse SDK
 - [x] Search & category filtering
@@ -132,7 +133,6 @@ bun run dev:cad          # CAD editor (Port 3001)
 
 ### 🔄 In Progress
 - [ ] AI Assistant "Torquy" for CAD commands
-- [ ] Relist/resale functionality
 - [ ] Save/Load CAD projects
 
 ### 📋 Planned

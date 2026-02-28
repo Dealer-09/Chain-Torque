@@ -32,6 +32,7 @@ export interface MarketplaceItem {
   modelHash?: string;
   modelUrl?: string;
   tokenURI?: string;
+  royalty?: number;
 }
 
 export interface MarketplaceStats {
