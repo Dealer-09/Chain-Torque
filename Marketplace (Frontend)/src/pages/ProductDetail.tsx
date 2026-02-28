@@ -76,6 +76,7 @@ interface ProductModel {
   tokenId?: number;
   contractAddress?: string;
   blockchain?: string;
+  royalty?: number;
 }
 
 // Mock data for demonstration
@@ -157,6 +158,7 @@ const ProductDetail = () => {
       tokenId: backendData.tokenId ? parseInt(backendData.tokenId, 10) : undefined,
       contractAddress: CONTRACT_ADDRESS,
       blockchain: 'Ethereum',
+      royalty: backendData.royalty || 0,
     };
   };
 
@@ -441,6 +443,11 @@ const ProductDetail = () => {
                 <div className="flex flex-col">
                   <span className="text-3xl font-bold text-primary">{model.price}</span>
                   {model.priceETH && <span className="text-muted-foreground">≈ {model.priceETH} ETH</span>}
+                  {model.royalty !== undefined && model.royalty > 0 && (
+                    <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 mt-1">
+                      {model.royalty}% Creator Royalty
+                    </span>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={toggleWishlist} className={isWishlisted ? 'text-red-500 border-red-500' : ''}>
