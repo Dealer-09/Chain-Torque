@@ -25,6 +25,7 @@ interface DisplayItem {
   fileTypes: string[];
   software: string[];
   category?: string;
+  royalty?: number;
   modelHash?: string;
   modelUrl?: string | null;
   isBlockchain?: boolean;
@@ -97,6 +98,7 @@ export function MarketplaceSection() {
         fileTypes: ['GLB', 'STL'],
         software: ['Blender', 'Three.js'],
         category: item.category || '3D Model',
+        royalty: item.royalty,
         tokenId: item.tokenId,
         modelHash: item.modelHash,
         modelUrl: item.modelUrl ? resolveAssetUrl(item.modelUrl) : null,
@@ -178,6 +180,7 @@ export function MarketplaceSection() {
                 downloads={model.downloads}
                 fileTypes={model.fileTypes}
                 software={model.software}
+                royalty={model.royalty}
                 onWalletRequired={handleWalletRequired}
               />
             ))}

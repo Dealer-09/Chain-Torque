@@ -18,6 +18,7 @@ interface CadCardProps {
   software: string[];
   className?: string;
   onWalletRequired?: () => void;
+  royalty?: number;
 }
 
 export function CadCard({
@@ -32,6 +33,7 @@ export function CadCard({
   software,
   className,
   onWalletRequired,
+  royalty,
 }: CadCardProps) {
   const navigate = useNavigate();
   const { user } = useUser();
@@ -114,9 +116,16 @@ export function CadCard({
 
           <div className='flex items-center justify-between text-xs text-muted-foreground mb-2'>
             <span className='truncate'>{seller}</span>
-            <div className='flex items-center gap-0.5'>
-              <Star className='h-3 w-3 fill-amber-400 text-amber-400' />
-              <span>{rating.toFixed(1)}</span>
+            <div className='flex flex-col items-end gap-0.5'>
+              <div className='flex items-center gap-0.5'>
+                <Star className='h-3 w-3 fill-amber-400 text-amber-400' />
+                <span>{rating.toFixed(1)}</span>
+              </div>
+              {royalty !== undefined && royalty > 0 && (
+                <span className='text-[10px] text-primary/80 font-medium'>
+                  {royalty}% Royalty
+                </span>
+              )}
             </div>
           </div>
 
