@@ -1,4 +1,4 @@
-import { Search, ChevronRight, Zap, Star, TrendingUp, Clock, ArrowRight } from 'lucide-react';
+import { Search, ChevronRight, Star, TrendingUp, Clock, ArrowRight, Building2, Car, Users, Armchair, Cpu, Leaf, Package, Home, Scan } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { CadCard } from '@/components/ui/cad-card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,6 @@ import { useMarketplace } from '@/hooks/useWeb3';
 import { useEffect, useState } from 'react';
 import { WalletConnectionDialog } from '@/components/ui/wallet-connection-dialog';
 import { Gear3D } from '@/components/ui/Gear3D';
-import { AutoCadGearSvg } from '@/components/ui/GearSvg';
 import { EngineSvg, WrenchSvg, PistonSvg, CircuitSvg, CogSvg, BlueprintSvg } from '@/components/ui/AnimatedCadSvgs';
 import { resolveAssetUrl } from '@/lib/urls';
 
@@ -38,13 +37,13 @@ const featuredModels: DisplayItem[] = [
 ];
 
 const categories = [
-  { name: 'Architecture', icon: '🏛️', count: '410+' },
-  { name: 'Vehicles', icon: '🚗', count: '320+' },
-  { name: 'Characters', icon: '👾', count: '150+' },
-  { name: 'Furniture', icon: '🪑', count: '210+' },
-  { name: 'Electronics', icon: '💡', count: '260+' },
-  { name: 'Nature', icon: '🌿', count: '180+' },
-  { name: 'Other', icon: '📦', count: '500+' },
+  { name: 'Architecture', icon: <Building2 className='w-5 h-5' />, count: '410+' },
+  { name: 'Vehicles', icon: <Car className='w-5 h-5' />, count: '320+' },
+  { name: 'Characters', icon: <Users className='w-5 h-5' />, count: '150+' },
+  { name: 'Furniture', icon: <Armchair className='w-5 h-5' />, count: '210+' },
+  { name: 'Electronics', icon: <Cpu className='w-5 h-5' />, count: '260+' },
+  { name: 'Nature', icon: <Leaf className='w-5 h-5' />, count: '180+' },
+  { name: 'Other', icon: <Package className='w-5 h-5' />, count: '500+' },
 ];
 
 export function HeroSection() {
@@ -112,61 +111,89 @@ export function HeroSection() {
   return (
     <>
       {/* Hero Banner */}
-      <section className='relative bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 py-8'>
-        <div className='container mx-auto px-4'>
-          <div className='grid lg:grid-cols-3 gap-6'>
+      <section className='relative bg-background py-10 lg:py-16 overflow-hidden'>
+        <div className="absolute inset-0 bg-background [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none"></div>
+        {/* Soft background glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80wv] max-w-[1000px] h-[400px] opacity-[0.08] dark:opacity-[0.15] bg-indigo-500 blur-[120px] rounded-full pointer-events-none mix-blend-multiply dark:mix-blend-screen" />
+
+        <div className='container mx-auto px-4 relative z-10'>
+          <div className='grid lg:grid-cols-12 gap-6'>
             {/* Main Hero Card */}
-            <div className='lg:col-span-2 relative rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-600 to-purple-700 p-8 min-h-[300px] flex flex-col justify-end'>
-              {/* Animated CAD SVG Icons - continuous animation */}
-              <div className='absolute top-4 right-4 opacity-40'>
-                <EngineSvg size={70} color='white' />
+            <div className='lg:col-span-8 relative rounded-3xl overflow-hidden bg-card/60 dark:bg-[#0A0A0A] backdrop-blur-xl border border-slate-200/60 dark:border-white/10 p-8 lg:p-12 min-h-[420px] flex flex-col justify-center shadow-[0_10px_40px_rgba(0,0,0,0.03)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] group'>
+              {/* Premium Background Effects */}
+              <div className='absolute -top-32 -right-32 w-[80%] h-[120%] bg-indigo-600/5 dark:bg-indigo-600/10 rounded-full blur-[100px] opacity-60 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none mix-blend-multiply dark:mix-blend-screen' />
+              <div className='absolute -bottom-32 -left-32 w-[60%] h-[80%] bg-purple-600/5 dark:bg-purple-600/10 rounded-full blur-[100px] opacity-40 pointer-events-none mix-blend-multiply dark:mix-blend-screen' />
+              <div className='absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_20%,transparent_100%)] pointer-events-none' />
+
+              {/* Animated CAD SVG Icons - floating subtly in background */}
+              <div className='absolute top-8 right-8 opacity-10 dark:opacity-20 group-hover:opacity-20 dark:group-hover:opacity-30 transition-opacity duration-500 text-slate-800 dark:text-white'>
+                <EngineSvg size={100} />
               </div>
-              <div className='absolute top-8 right-24 opacity-35'>
-                <PistonSvg size={50} color='white' />
+              <div className='absolute top-16 right-48 opacity-[0.05] dark:opacity-[0.12] text-slate-800 dark:text-white'>
+                <PistonSvg size={70} />
               </div>
-              <div className='absolute top-24 right-8 opacity-40'>
-                <CogSvg size={45} color='white' />
+              <div className='absolute top-36 right-16 opacity-10 dark:opacity-15 text-slate-800 dark:text-white'>
+                <CogSvg size={65} />
               </div>
-              <div className='absolute bottom-24 right-6 opacity-35'>
-                <CircuitSvg size={55} color='white' />
+              <div className='absolute bottom-12 right-12 opacity-10 dark:opacity-15 text-slate-800 dark:text-white'>
+                <CircuitSvg size={80} />
               </div>
-              <div className='absolute bottom-32 right-28 opacity-30'>
-                <WrenchSvg size={40} color='white' />
+              <div className='absolute bottom-32 right-40 opacity-5 dark:opacity-10 text-slate-800 dark:text-white'>
+                <WrenchSvg size={50} />
               </div>
-              <div className='absolute top-16 right-[140px] opacity-25'>
-                <BlueprintSvg size={55} color='white' />
+              <div className='absolute top-28 right-[240px] opacity-[0.03] dark:opacity-[0.08] hidden md:block text-slate-800 dark:text-white'>
+                <BlueprintSvg size={80} />
               </div>
-              <div className='absolute bottom-16 right-[100px] opacity-20'>
-                <AutoCadGearSvg size={50} color='white' />
-              </div>
-              <div className='absolute inset-0 opacity-20'>
-                <div className='absolute top-10 right-10 w-40 h-40 rounded-full bg-white/20 blur-2xl' />
-                <div className='absolute bottom-10 left-10 w-32 h-32 rounded-full bg-white/20 blur-2xl' />
-              </div>
-              <div className='relative z-10'>
-                <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-medium mb-4'>
-                  <Zap className='h-3 w-3' />
-                  Featured Collection
+
+              <div className='relative z-20 max-w-xl'>
+                <div className='inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/90 text-xs font-medium mb-6 shadow-sm dark:shadow-inner'>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                  </span>
+                  Verified CAD Marketplace
                 </div>
-                <h1 className='text-3xl md:text-4xl font-bold text-white mb-3'>
-                  Premium CAD Models
+                <h1 className='text-4xl sm:text-5xl lg:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-indigo-800 to-slate-800 dark:from-white dark:via-indigo-100 dark:to-white/70 tracking-tight leading-[1.1] mb-6 drop-shadow-sm'>
+                  Premium Engineering Models
                 </h1>
-                <p className='text-white/80 mb-6 max-w-md'>
-                  Discover high-quality 3D models from verified creators. Trade securely on the blockchain.
+                <p className='text-slate-600 dark:text-white/60 mb-8 text-base leading-relaxed font-light'>
+                  Discover high-fidelity 3D assets from verified creators. Trade securely on the blockchain with instant IP rights transfer.
                 </p>
-                <Link
-                  to='/upload'
-                  className='inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white text-indigo-600 font-medium hover:bg-white/90 transition-all text-sm'
-                >
-                  Start Selling
-                  <ArrowRight className='h-4 w-4' />
-                </Link>
+                <div className='flex flex-wrap items-center gap-4'>
+                  <Link
+                    to='/upload'
+                    className='inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-indigo-600 text-white dark:bg-white dark:text-black font-semibold hover:bg-indigo-700 dark:hover:bg-white/90 transition-all text-sm shadow-[0_0_20px_rgba(79,70,229,0.2)] dark:shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(79,70,229,0.4)] dark:hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] transform hover:-translate-y-0.5'
+                  >
+                    Start Selling Now
+                    <ArrowRight className='h-4 w-4' />
+                  </Link>
+                  <a href="#library" className="group inline-flex items-center justify-center rounded-xl px-6 py-3.5 text-sm font-medium border border-slate-200 dark:border-white/20 text-slate-700 dark:text-white bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 backdrop-blur-xl transition-all">
+                    Explore Library
+                    <ChevronRight className='h-4 w-4 ml-1 opacity-50 group-hover:opacity-100 transition-opacity group-hover:translate-x-1' />
+                  </a>
+                </div>
               </div>
             </div>
 
             {/* 3D Gear Display */}
-            <div className='rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 overflow-hidden min-h-[300px] flex items-center justify-center border border-slate-200 dark:border-white/10'>
+            <div className='lg:col-span-4 rounded-3xl bg-white/60 dark:bg-[#050505] backdrop-blur-xl overflow-hidden min-h-[300px] lg:min-h-[420px] flex items-center justify-center border border-slate-200/60 dark:border-white/5 relative group shadow-[0_10px_40px_rgba(0,0,0,0.03)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]'>
+              <div className='absolute inset-0 bg-gradient-to-t from-indigo-100/50 to-transparent dark:from-indigo-900/10 pointer-events-none' />
+              <div className='absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_0%,transparent_70%)] dark:bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_0%,transparent_70%)] pointer-events-none' />
               <Gear3D size='medium' />
+
+              <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-white/80 dark:bg-black/40 backdrop-blur-md border border-slate-200 dark:border-white/5 text-slate-600 dark:text-white/50 text-[10px] uppercase tracking-wider font-semibold flex items-center gap-2 shadow-sm dark:shadow-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.5)] dark:shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                Interactive 3D
+              </div>
+              <div className="absolute bottom-4 left-4 right-4 px-4 py-3 rounded-2xl bg-white/80 dark:bg-black/40 backdrop-blur-md border border-slate-200 dark:border-white/5 flex items-center justify-between shadow-sm dark:shadow-none">
+                <div>
+                  <div className="text-slate-500 dark:text-white/40 text-[10px] uppercase tracking-wider mb-0.5">Live View</div>
+                  <div className="text-slate-900 dark:text-white text-sm font-medium">Mechanical Gear Assembly</div>
+                </div>
+                <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center">
+                  <Scan className="w-4 h-4 text-slate-600 dark:text-white/70" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -201,27 +228,27 @@ export function HeroSection() {
           <div className='flex items-center gap-6 overflow-x-auto pb-2'>
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all whitespace-nowrap ${!selectedCategory
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-background border-border/50 hover:border-primary/30 hover:bg-primary/5'
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all duration-300 whitespace-nowrap ${!selectedCategory
+                ? 'bg-primary text-primary-foreground border-primary shadow-md scale-105'
+                : 'bg-background border-border/50 hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm'
                 }`}
             >
-              <span className='text-lg'>🏠</span>
+              <span className={`flex items-center justify-center transition-colors ${!selectedCategory ? 'text-primary-foreground/90' : 'text-muted-foreground group-hover:text-primary'}`}><Home className='w-5 h-5 text-current' /></span>
               <div className='text-sm font-medium'>All</div>
             </button>
             {categories.map((cat) => (
               <button
                 key={cat.name}
                 onClick={() => setSelectedCategory(cat.name === selectedCategory ? null : cat.name)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all whitespace-nowrap group ${selectedCategory === cat.name
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background border-border/50 hover:border-primary/30 hover:bg-primary/5'
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all duration-300 whitespace-nowrap group ${selectedCategory === cat.name
+                  ? 'bg-primary text-primary-foreground border-primary shadow-md scale-105'
+                  : 'bg-background border-border/50 hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm'
                   }`}
               >
-                <span className='text-lg'>{cat.icon}</span>
+                <span className={`flex items-center justify-center transition-colors ${selectedCategory === cat.name ? 'text-primary-foreground/90' : 'text-muted-foreground group-hover:text-primary'}`}>{cat.icon}</span>
                 <div className='text-left'>
                   <div className={`text-sm font-medium transition-colors ${selectedCategory === cat.name ? '' : 'text-foreground group-hover:text-primary'}`}>{cat.name}</div>
-                  <div className={`text-xs ${selectedCategory === cat.name ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{cat.count} models</div>
+                  <div className={`text-xs transition-colors ${selectedCategory === cat.name ? 'text-primary-foreground/70' : 'text-muted-foreground group-hover:text-primary/70'}`}>{cat.count} models</div>
                 </div>
               </button>
             ))}
@@ -266,15 +293,19 @@ export function HeroSection() {
         <div className='container mx-auto px-4'>
           <div className='grid md:grid-cols-2 lg:grid-cols-4 gap-6'>
             {/* Best Sellers Card */}
-            <div className='bg-card rounded-xl p-5 border border-border/50'>
-              <div className='flex items-center gap-2 mb-4'>
-                <Star className='h-4 w-4 text-amber-500' />
-                <h3 className='font-semibold text-foreground'>Best Sellers</h3>
+            <div className='bg-card/60 backdrop-blur-md rounded-2xl p-6 border border-border/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-1 relative overflow-hidden group'>
+              <div className='absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300' />
+              <div className='flex items-center gap-2 mb-5 relative z-10'>
+                <Star className='h-5 w-5 text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]' />
+                <h3 className='font-semibold text-foreground tracking-tight'>Best Sellers</h3>
               </div>
-              <div className='grid grid-cols-2 gap-2'>
+              <div className='grid grid-cols-2 gap-3 relative z-10'>
                 {displayItems.slice(0, 4).map((item, i) => (
-                  <Link key={`best-${i}`} to={`/product/${item.tokenId}`} className='aspect-square rounded-lg overflow-hidden bg-muted hover:opacity-80 transition-opacity'>
-                    <img src={item.image} alt={item.title} className='w-full h-full object-cover' />
+                  <Link key={`best-${i}`} to={`/product/${item.tokenId}`} className='aspect-square rounded-xl overflow-hidden bg-muted group/item relative'>
+                    <img src={item.image} alt={item.title} className='w-full h-full object-cover transition-transform duration-500 group-hover/item:scale-110' />
+                    <div className='absolute inset-0 bg-black/20 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300 flex items-center justify-center'>
+                      <span className='text-white text-xs font-medium px-2 py-1 rounded bg-black/40 backdrop-blur-sm'>View</span>
+                    </div>
                   </Link>
                 ))}
               </div>
@@ -282,15 +313,19 @@ export function HeroSection() {
             </div>
 
             {/* New Arrivals Card */}
-            <div className='bg-card rounded-xl p-5 border border-border/50'>
-              <div className='flex items-center gap-2 mb-4'>
-                <Clock className='h-4 w-4 text-emerald-500' />
-                <h3 className='font-semibold text-foreground'>New Arrivals</h3>
+            <div className='bg-card/60 backdrop-blur-md rounded-2xl p-6 border border-border/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-1 relative overflow-hidden group'>
+              <div className='absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300' />
+              <div className='flex items-center gap-2 mb-5 relative z-10'>
+                <Clock className='h-5 w-5 text-emerald-500 drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]' />
+                <h3 className='font-semibold text-foreground tracking-tight'>New Arrivals</h3>
               </div>
-              <div className='grid grid-cols-2 gap-2'>
+              <div className='grid grid-cols-2 gap-3 relative z-10'>
                 {displayItems.slice(0, 4).map((item, i) => (
-                  <Link key={`new-${i}`} to={`/product/${item.tokenId}`} className='aspect-square rounded-lg overflow-hidden bg-muted hover:opacity-80 transition-opacity'>
-                    <img src={item.image} alt={item.title} className='w-full h-full object-cover' />
+                  <Link key={`new-${i}`} to={`/product/${item.tokenId}`} className='aspect-square rounded-xl overflow-hidden bg-muted group/item relative'>
+                    <img src={item.image} alt={item.title} className='w-full h-full object-cover transition-transform duration-500 group-hover/item:scale-110' />
+                    <div className='absolute inset-0 bg-black/20 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300 flex items-center justify-center'>
+                      <span className='text-white text-xs font-medium px-2 py-1 rounded bg-black/40 backdrop-blur-sm'>View</span>
+                    </div>
                   </Link>
                 ))}
               </div>
@@ -298,15 +333,19 @@ export function HeroSection() {
             </div>
 
             {/* Top Rated Card */}
-            <div className='bg-card rounded-xl p-5 border border-border/50'>
-              <div className='flex items-center gap-2 mb-4'>
-                <Star className='h-4 w-4 text-primary fill-primary' />
-                <h3 className='font-semibold text-foreground'>Top Rated</h3>
+            <div className='bg-card/60 backdrop-blur-md rounded-2xl p-6 border border-border/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-1 relative overflow-hidden group'>
+              <div className='absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300' />
+              <div className='flex items-center gap-2 mb-5 relative z-10'>
+                <Star className='h-5 w-5 text-primary fill-primary drop-shadow-[0_0_8px_inherit]' />
+                <h3 className='font-semibold text-foreground tracking-tight'>Top Rated</h3>
               </div>
-              <div className='grid grid-cols-2 gap-2'>
+              <div className='grid grid-cols-2 gap-3 relative z-10'>
                 {displayItems.slice(0, 4).map((item, i) => (
-                  <Link key={`top-${i}`} to={`/product/${item.tokenId}`} className='aspect-square rounded-lg overflow-hidden bg-muted hover:opacity-80 transition-opacity'>
-                    <img src={item.image} alt={item.title} className='w-full h-full object-cover' />
+                  <Link key={`top-${i}`} to={`/product/${item.tokenId}`} className='aspect-square rounded-xl overflow-hidden bg-muted group/item relative'>
+                    <img src={item.image} alt={item.title} className='w-full h-full object-cover transition-transform duration-500 group-hover/item:scale-110' />
+                    <div className='absolute inset-0 bg-black/20 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300 flex items-center justify-center'>
+                      <span className='text-white text-xs font-medium px-2 py-1 rounded bg-black/40 backdrop-blur-sm'>View</span>
+                    </div>
                   </Link>
                 ))}
               </div>

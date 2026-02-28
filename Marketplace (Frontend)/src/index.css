@@ -7,13 +7,14 @@
 @layer base {
   :root {
     /* Light Mode - Clean & Minimal */
-    --background: 0 0% 99%;
+    --background: 15 100% 98%;
+    /* Light Peach / Pink */
     --foreground: 220 20% 10%;
 
-    --card: 0 0% 100%;
+    --card: 15 100% 99%;
     --card-foreground: 220 20% 10%;
 
-    --popover: 0 0% 100%;
+    --popover: 15 100% 99%;
     --popover-foreground: 220 20% 10%;
 
     /* Refined Blue Primary */

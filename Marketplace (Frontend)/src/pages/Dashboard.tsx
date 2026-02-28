@@ -258,66 +258,78 @@ const Dashboard = () => {
 
           {/* Stats Overview */}
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
-            <Card>
-              <CardContent className='p-6'>
+            <Card className='bg-card/40 backdrop-blur-md border-border/40 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group'>
+              <div className='absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300' />
+              <CardContent className='p-6 relative z-10'>
                 <div className='flex items-center justify-between'>
                   <div>
                     <p className='text-sm font-medium text-muted-foreground'>
                       Total Models
                     </p>
-                    <p className='text-2xl font-bold'>
+                    <p className='text-3xl font-bold mt-1 tracking-tight'>
                       {dashboardData.stats.totalModels}
                     </p>
                   </div>
-                  <Upload className='h-8 w-8 text-blue-500' />
+                  <div className='p-3 bg-blue-500/10 rounded-xl group-hover:scale-110 transition-transform duration-300'>
+                    <Upload className='h-6 w-6 text-blue-500' />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className='p-6'>
+            <Card className='bg-card/40 backdrop-blur-md border-border/40 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group'>
+              <div className='absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300' />
+              <CardContent className='p-6 relative z-10'>
                 <div className='flex items-center justify-between'>
                   <div>
                     <p className='text-sm font-medium text-muted-foreground'>
                       Total Sales
                     </p>
-                    <p className='text-2xl font-bold'>
+                    <p className='text-3xl font-bold mt-1 tracking-tight'>
                       {dashboardData.stats.totalSales}
                     </p>
                   </div>
-                  <ShoppingBag className='h-8 w-8 text-green-500' />
+                  <div className='p-3 bg-emerald-500/10 rounded-xl group-hover:scale-110 transition-transform duration-300'>
+                    <ShoppingBag className='h-6 w-6 text-emerald-500' />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className='p-6'>
+            <Card className='bg-card/40 backdrop-blur-md border-border/40 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group'>
+              <div className='absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300' />
+              <CardContent className='p-6 relative z-10'>
                 <div className='flex items-center justify-between'>
                   <div>
                     <p className='text-sm font-medium text-muted-foreground'>
                       Estimated Earnings
                     </p>
-                    <p className='text-2xl font-bold'>
+                    <p className='text-3xl font-bold mt-1 tracking-tight'>
                       {dashboardData.stats.totalEarnings}
                     </p>
                   </div>
-                  <DollarSign className='h-8 w-8 text-yellow-500' />
+                  <div className='p-3 bg-amber-500/10 rounded-xl group-hover:scale-110 transition-transform duration-300'>
+                    <DollarSign className='h-6 w-6 text-amber-500' />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className='p-6'>
+            <Card className='bg-card/40 backdrop-blur-md border-border/40 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group'>
+              <div className='absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300' />
+              <CardContent className='p-6 relative z-10'>
                 <div className='flex items-center justify-between'>
                   <div>
                     <p className='text-sm font-medium text-muted-foreground'>
                       Total Views
                     </p>
-                    <p className='text-2xl font-bold'>
+                    <p className='text-3xl font-bold mt-1 tracking-tight'>
                       {dashboardData.stats.totalViews.toLocaleString()}
                     </p>
                   </div>
-                  <Eye className='h-8 w-8 text-purple-500' />
+                  <div className='p-3 bg-purple-500/10 rounded-xl group-hover:scale-110 transition-transform duration-300'>
+                    <Eye className='h-6 w-6 text-purple-500' />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -325,7 +337,7 @@ const Dashboard = () => {
 
           <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
             {/* My Models */}
-            <Card>
+            <Card className='bg-card/40 backdrop-blur-md border border-border/40 shadow-sm'>
               <CardHeader>
                 <CardTitle className='flex items-center justify-between'>
                   <span>My Models</span>
@@ -390,7 +402,7 @@ const Dashboard = () => {
             </Card>
 
             {/* Recent Purchases */}
-            <Card>
+            <Card className='bg-card/40 backdrop-blur-md border border-border/40 shadow-sm'>
               <CardHeader>
                 <CardTitle>Recent Purchases</CardTitle>
               </CardHeader>
@@ -437,7 +449,7 @@ const Dashboard = () => {
           </div>
 
           {/* Recent Transactions */}
-          <Card className='mt-8'>
+          <Card className='mt-8 bg-card/40 backdrop-blur-md border border-border/40 shadow-sm'>
             <CardHeader>
               <CardTitle className='flex items-center gap-2'>
                 <TrendingUp className='h-5 w-5' />
