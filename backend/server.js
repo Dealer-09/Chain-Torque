@@ -174,11 +174,11 @@ async function initializeServices() {
     await connectDatabase();
     await web3.initialize();
 
+    await syncBlockchainToDB();
+
     // Start Blockchain Event Listener
     const eventListener = require('./services/eventListener');
     eventListener.start();
-
-    await syncBlockchainToDB();
   } catch (error) {
     console.error('Service initialization failed:', error.message);
   }

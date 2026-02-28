@@ -146,14 +146,16 @@ class Web3Manager {
       const currentTokenId = Number(await this.contract.getCurrentTokenId());
       const formattedItems = [];
 
-      // Fetch all items one by one (or in batches if supported, but loop is fine for <1000 items)
-      // Parallelize for speed
-      const promises = [];
+      // Fetch all items sequentially to prevent RPC rate limiting
+      const rawItems = [];
       for (let i = 1; i <= currentTokenId; i++) {
-        promises.push(this.contract.getMarketItem(i).catch(e => null));
+        try {
+          const item = await this.contract.getMarketItem(i);
+          rawItems.push(item);
+        } catch (e) {
+          console.error(`[Web3] Error fetching market item ${i}:`, e.message);
+        }
       }
-
-      const rawItems = await Promise.all(promises);
 
       for (const item of rawItems) {
         if (item && item.tokenId > 0) {
