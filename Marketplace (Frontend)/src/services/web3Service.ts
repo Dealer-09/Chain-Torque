@@ -73,6 +73,25 @@ class Web3Service {
         };
     }
 
+    async relistToken(tokenId: number, priceETH: number) {
+        if (!this.contract) await this.connect();
+        if (!this.contract) throw new Error("Contract not initialized");
+
+        const priceWei = ethers.parseEther(priceETH.toString());
+        const listingPrice = await this.contract.getListingPrice();
+
+        const tx = await this.contract.relistToken(tokenId, priceWei, {
+            value: listingPrice
+        });
+
+        // Wait for transaction confirmation
+        const receipt = await tx.wait();
+        return {
+            transactionHash: tx.hash,
+            blockNumber: receipt.blockNumber
+        };
+    }
+
     async getMarketItem(tokenId: number) {
         if (!this.contract) await this.connect();
         if (!this.contract) throw new Error("Contract not initialized");

@@ -68,6 +68,12 @@ class EventListener {
                 await this.handleItemSold(event);
             }
 
+            // 3. Fetch MarketItemRelisted Events
+            const relistedEvents = await contract.queryFilter('MarketItemRelisted', fromBlock, toBlock);
+            for (const event of relistedEvents) {
+                await this.handleItemRelisted(event);
+            }
+
             // Update state
             this.lastProcessedBlock = currentBlock;
 
@@ -207,6 +213,45 @@ class EventListener {
 
         } catch (err) {
             console.error('[EventListener] Error processing MarketItemSold:', err);
+        }
+    }
+
+    async handleItemRelisted(event) {
+        try {
+            const { tokenId, seller, price } = event.args;
+            console.log(`[EventListener] Relist Detected: #${tokenId} relisted by ${seller} for ${ethers.formatEther(price)} ETH`);
+
+            const item = await MarketItem.findOne({ tokenId: Number(tokenId) });
+            if (!item) {
+                console.warn(`[EventListener] Relisted item #${tokenId} not found in DB`);
+                return;
+            }
+
+            // Ensure we aren't processing an old event unnecessarily if we somehow already set it
+            // Active items that are relisted might be an edge case if they just changed price, but usually it transitions from sold -> active
+
+            // Update Item
+            item.status = 'active';
+            item.price = Number(ethers.formatEther(price));
+            item.seller = seller.toLowerCase();
+            // In the contract, the owner is the marketplace itself now (in escrow)
+            item.owner = web3.contract.target.toLowerCase();
+
+            // Try to resolve username from DB for the new seller
+            try {
+                const user = await User.findOne({ walletAddress: seller.toLowerCase() });
+                if (user) {
+                    item.username = user.displayName || user.username || 'Creator';
+                }
+            } catch (e) {
+                console.warn(`[EventListener] Failed to resolve username for relisted seller ${seller}: ${e.message}`);
+            }
+
+            await item.save();
+            console.log(`[EventListener] Document updated for Relisted item #${tokenId}`);
+
+        } catch (err) {
+            console.error('[EventListener] Error processing MarketItemRelisted:', err);
         }
     }
 
