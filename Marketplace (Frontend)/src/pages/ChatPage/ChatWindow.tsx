@@ -17,9 +17,10 @@ interface ChatWindowProps {
     socket: Socket | null;
     currentUserWallet: string;
     selectedUser: TopSeller;
+    isConnected: boolean;
 }
 
-const ChatWindow = ({ socket, currentUserWallet, selectedUser }: ChatWindowProps) => {
+const ChatWindow = ({ socket, currentUserWallet, selectedUser, isConnected }: ChatWindowProps) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
@@ -88,9 +89,9 @@ const ChatWindow = ({ socket, currentUserWallet, selectedUser }: ChatWindowProps
     };
 
     return (
-        <div className="flex flex-col h-full bg-white dark:bg-zinc-950">
+        <div className="flex flex-col h-full bg-white/40 dark:bg-black/20">
             {/* Header */}
-            <div className="flex items-center p-4 border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm z-10">
+            <div className="flex items-center p-4 border-b border-gray-200/50 dark:border-white/10 bg-white/60 dark:bg-zinc-900/40 backdrop-blur-md z-10">
                 <div className="relative">
                     {selectedUser.avatar ? (
                         <img src={selectedUser.avatar} alt={selectedUser.username} className="w-12 h-12 rounded-full object-cover border-2 border-white dark:border-zinc-800 shadow-sm" />
@@ -108,17 +109,17 @@ const ChatWindow = ({ socket, currentUserWallet, selectedUser }: ChatWindowProps
                             <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                         )}
                     </h2>
-                    <p className="text-sm text-gray-500 flex items-center">
-                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>
-                        Online • Responds usually in 1 hr
+                    <p className="text-sm text-gray-500/80 dark:text-gray-400 flex items-center font-medium">
+                        <span className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]'}`}></span>
+                        {isConnected ? 'Active Now' : 'Connecting...'}
                     </p>
                 </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-zinc-950/50 relative">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 relative">
                 {loading ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-zinc-900/50 backdrop-blur-sm z-10">
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/20 dark:bg-black/20 backdrop-blur-sm z-10">
                         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
                     </div>
                 ) : messages.length === 0 ? (
@@ -154,9 +155,9 @@ const ChatWindow = ({ socket, currentUserWallet, selectedUser }: ChatWindowProps
                                     )}
 
                                     <div
-                                        className={`px-4 py-2.5 rounded-2xl shadow-sm relative ${isMe
-                                                ? 'bg-blue-600 text-white rounded-br-none'
-                                                : 'bg-white dark:bg-zinc-800 text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-zinc-700/50 rounded-bl-none'
+                                        className={`px-4 py-2.5 shadow-sm relative backdrop-blur-md ${isMe
+                                            ? 'bg-blue-500 text-white rounded-[20px] rounded-br-[4px]'
+                                            : 'bg-white/80 dark:bg-zinc-800/80 text-gray-900 dark:text-gray-100 border border-gray-100/50 dark:border-white/5 rounded-[20px] rounded-bl-[4px]'
                                             }`}
                                     >
                                         <p className="text-[15px] leading-relaxed break-words">{msg.content}</p>
@@ -173,14 +174,14 @@ const ChatWindow = ({ socket, currentUserWallet, selectedUser }: ChatWindowProps
             </div>
 
             {/* Input Form */}
-            <form onSubmit={handleSendMessage} className="p-4 bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800">
+            <form onSubmit={handleSendMessage} className="p-4 bg-white/60 dark:bg-zinc-900/40 backdrop-blur-md border-t border-gray-200/50 dark:border-white/10">
                 <div className="flex items-center gap-2 max-w-4xl mx-auto">
                     <input
                         type="text"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder={`Message ${selectedUser.username}...`}
-                        className="flex-1 px-4 py-3 bg-gray-100 dark:bg-zinc-800 border-none rounded-full focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-zinc-900 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-500"
+                        placeholder="iMessage"
+                        className="flex-1 px-5 py-2.5 bg-gray-100/80 dark:bg-zinc-800/80 border border-gray-200/50 dark:border-white/5 rounded-full focus:ring-2 focus:ring-blue-500/50 focus:bg-white dark:focus:bg-zinc-800 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-500/70 outline-none shadow-inner"
                     />
                     <button
                         type="submit"

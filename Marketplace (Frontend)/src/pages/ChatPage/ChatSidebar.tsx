@@ -6,9 +6,10 @@ import { Search, UserRound, Award } from 'lucide-react';
 interface ChatSidebarProps {
     selectedUser: TopSeller | null;
     onSelectUser: (user: TopSeller) => void;
+    currentUserWallet: string;
 }
 
-const ChatSidebar = ({ selectedUser, onSelectUser }: ChatSidebarProps) => {
+const ChatSidebar = ({ selectedUser, onSelectUser, currentUserWallet }: ChatSidebarProps) => {
     const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -31,15 +32,17 @@ const ChatSidebar = ({ selectedUser, onSelectUser }: ChatSidebarProps) => {
         fetchTopSellers();
     }, []);
 
-    const filteredSellers = topSellers.filter(seller =>
-        seller.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        seller.displayName?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredSellers = topSellers.filter(seller => {
+        const isNotCurrentUser = seller.walletAddress.toLowerCase() !== currentUserWallet?.toLowerCase();
+        const matchesSearch = seller.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            seller.displayName?.toLowerCase().includes(searchQuery.toLowerCase());
+        return isNotCurrentUser && matchesSearch;
+    });
 
     return (
-        <div className="w-80 flex flex-col bg-white dark:bg-zinc-900 border-r border-gray-200 dark:border-zinc-800 transition-all">
+        <div className="w-80 flex flex-col bg-white/70 dark:bg-black/50 backdrop-blur-xl border-r border-gray-200/50 dark:border-white/10 transition-all shadow-[1px_0_10px_rgba(0,0,0,0.02)]">
             <div className="p-4 border-b border-gray-200 dark:border-zinc-800">
-                <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center">
+                <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white mb-4 flex items-center">
                     <Award className="w-5 h-5 mr-2 text-blue-500" />
                     Top Sellers
                 </h2>
@@ -51,7 +54,7 @@ const ChatSidebar = ({ selectedUser, onSelectUser }: ChatSidebarProps) => {
                         placeholder="Search sellers..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-zinc-800 border-none rounded-lg focus:ring-2 focus:ring-blue-500 text-sm text-gray-800 dark:text-gray-200"
+                        className="w-full pl-9 pr-4 py-2 bg-gray-200/60 dark:bg-zinc-800/60 border-none rounded-xl focus:ring-2 focus:ring-blue-500/50 text-[15px] font-medium text-gray-900 dark:text-white placeholder-gray-500/80 outline-none shadow-inner transition-all"
                     />
                 </div>
             </div>
@@ -65,8 +68,8 @@ const ChatSidebar = ({ selectedUser, onSelectUser }: ChatSidebarProps) => {
                             <li key={seller.walletAddress}>
                                 <button
                                     onClick={() => onSelectUser(seller)}
-                                    className={`w-full text-left p-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors flex items-center space-x-3 
-                    ${selectedUser?.walletAddress === seller.walletAddress ? 'bg-blue-50 dark:bg-blue-900/10 border-l-4 border-blue-500' : 'border-l-4 border-transparent'}`}
+                                    className={`w-full text-left p-3 my-1 rounded-xl transition-all flex items-center space-x-3
+                    ${selectedUser?.walletAddress === seller.walletAddress ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20' : 'hover:bg-gray-200/50 dark:hover:bg-zinc-800/50 text-gray-900 dark:text-gray-200'}`}
                                 >
                                     <div className="relative">
                                         {seller.avatar ? (
@@ -82,10 +85,10 @@ const ChatSidebar = ({ selectedUser, onSelectUser }: ChatSidebarProps) => {
                                     </div>
 
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                                        <p className={`text-sm tracking-tight font-medium truncate ${selectedUser?.walletAddress === seller.walletAddress ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
                                             {seller.displayName || seller.username || 'Unknown Seller'}
                                         </p>
-                                        <p className="text-xs text-gray-500 truncate mt-0.5">
+                                        <p className={`text-[13px] truncate mt-0.5 ${selectedUser?.walletAddress === seller.walletAddress ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'}`}>
                                             {seller.stats?.totalSold || 0} sales
                                         </p>
                                     </div>
