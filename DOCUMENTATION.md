@@ -106,6 +106,7 @@ ChainTorque addresses these challenges through:
   - Professional CAD interface (similar to AutoCAD/Fusion360)
   - Tool palette (line, circle, rectangle, polygon, text, etc.)
   - Transformation tools (move, rotate, scale)
+  - **Mesh vertex editing** - Select and drag individual vertices to modify 3D shapes (see [MESH_VERTEX_EDITING.md](CAD%20(Frontend)/MESH_VERTEX_EDITING.md))
   - Grid and crosshair guidelines
   - "Torquy" AI assistant panel for natural language commands
   - Status bar with real-time feedback (coordinates, FPS)

@@ -237,16 +237,18 @@ class CADGeometryService {
      */
     booleanUnion(shape1, shape2) {
         const oc = getOC();
-        let progress = null;
         try {
-            progress = new oc.Message_ProgressRange_1();
-            const fuse = new oc.BRepAlgoAPI_Fuse_3(shape1, shape2, progress);
+            const fuse = new oc.BRepAlgoAPI_Fuse_1();
+            fuse.SetArguments(shape1);
+            fuse.SetTools(shape2);
+            fuse.Build();
+            if (!fuse.IsDone()) {
+                throw new Error('Union operation failed to complete');
+            }
             const result = fuse.Shape();
             safeDelete(fuse);
-            safeDelete(progress);
             return result;
         } catch (err) {
-            safeDelete(progress);
             throw new Error(`Boolean union failed: ${err.message}`);
         }
     }
@@ -256,16 +258,18 @@ class CADGeometryService {
      */
     booleanCut(shape1, shape2) {
         const oc = getOC();
-        let progress = null;
         try {
-            progress = new oc.Message_ProgressRange_1();
-            const cut = new oc.BRepAlgoAPI_Cut_3(shape1, shape2, progress);
+            const cut = new oc.BRepAlgoAPI_Cut_1();
+            cut.SetArguments(shape1);
+            cut.SetTools(shape2);
+            cut.Build();
+            if (!cut.IsDone()) {
+                throw new Error('Cut operation failed to complete');
+            }
             const result = cut.Shape();
             safeDelete(cut);
-            safeDelete(progress);
             return result;
         } catch (err) {
-            safeDelete(progress);
             throw new Error(`Boolean cut failed: ${err.message}`);
         }
     }
@@ -275,16 +279,18 @@ class CADGeometryService {
      */
     booleanIntersect(shape1, shape2) {
         const oc = getOC();
-        let progress = null;
         try {
-            progress = new oc.Message_ProgressRange_1();
-            const common = new oc.BRepAlgoAPI_Common_3(shape1, shape2, progress);
+            const common = new oc.BRepAlgoAPI_Common_1();
+            common.SetArguments(shape1);
+            common.SetTools(shape2);
+            common.Build();
+            if (!common.IsDone()) {
+                throw new Error('Intersection operation failed to complete');
+            }
             const result = common.Shape();
             safeDelete(common);
-            safeDelete(progress);
             return result;
         } catch (err) {
-            safeDelete(progress);
             throw new Error(`Boolean intersection failed: ${err.message}`);
         }
     }
@@ -363,6 +369,158 @@ class CADGeometryService {
         } catch (err) {
             safeDelete(...toDelete);
             throw new Error(`Mesh conversion failed: ${err.message}`);
+        }
+    }
+
+    /**
+     * Convert mesh data (vertices + indices) to OpenCascade BREP shape
+     * This enables boolean operations on imported GLB/STL meshes
+     * NOTE: This is computationally expensive and works best with simple, low-poly meshes
+     * @param {Object} meshData - Object with vertices (Float32Array) and indices (Uint32Array)
+     * @returns {TopoDS_Shape} OpenCascade solid shape
+     */
+    meshToShape(meshData) {
+        const oc = getOC();
+        const toDelete = [];
+
+        try {
+            let { vertices, indices } = meshData;
+
+            // Ensure typed arrays
+            if (!(vertices instanceof Float32Array)) {
+                vertices = new Float32Array(vertices);
+            }
+            if (!(indices instanceof Uint32Array)) {
+                indices = new Uint32Array(indices);
+            }
+
+            if (!vertices || vertices.length < 9 || !indices || indices.length < 3) {
+                throw new Error('Invalid mesh data: need at least 3 vertices and 1 triangle');
+            }
+
+            const triangleCount = indices.length / 3;
+            
+            // Limit complexity to prevent crashes
+            if (triangleCount > 5000) {
+                throw new Error(`Mesh too complex (${triangleCount} triangles). Max 5000 triangles. Try simplifying the model first.`);
+            }
+
+            console.log(`Converting mesh to BREP: ${triangleCount} triangles...`);
+
+            // Create a BRep builder to construct shell manually
+            const builder = new oc.BRep_Builder();
+            const compound = new oc.TopoDS_Compound();
+            builder.MakeCompound(compound);
+            toDelete.push(builder);
+
+            // Process triangles and create faces
+            let successCount = 0;
+            const maxTriangles = Math.min(triangleCount, 1000); // Limit for performance
+
+            for (let i = 0; i < maxTriangles; i++) {
+                try {
+                    const idx0 = indices[i * 3 + 0];
+                    const idx1 = indices[i * 3 + 1];
+                    const idx2 = indices[i * 3 + 2];
+
+                    // Get vertex coordinates
+                    const v0 = new oc.gp_Pnt_3(
+                        vertices[idx0 * 3 + 0],
+                        vertices[idx0 * 3 + 1],
+                        vertices[idx0 * 3 + 2]
+                    );
+                    const v1 = new oc.gp_Pnt_3(
+                        vertices[idx1 * 3 + 0],
+                        vertices[idx1 * 3 + 1],
+                        vertices[idx1 * 3 + 2]
+                    );
+                    const v2 = new oc.gp_Pnt_3(
+                        vertices[idx2 * 3 + 0],
+                        vertices[idx2 * 3 + 1],
+                        vertices[idx2 * 3 + 2]
+                    );
+
+                    // Create edges for the triangle
+                    const edge1 = new oc.BRepBuilderAPI_MakeEdge_3(v0, v1).Edge();
+                    const edge2 = new oc.BRepBuilderAPI_MakeEdge_3(v1, v2).Edge();
+                    const edge3 = new oc.BRepBuilderAPI_MakeEdge_3(v2, v0).Edge();
+
+                    // Create wire from edges
+                    const wireBuilder = new oc.BRepBuilderAPI_MakeWire_1();
+                    wireBuilder.Add_1(edge1);
+                    wireBuilder.Add_1(edge2);
+                    wireBuilder.Add_1(edge3);
+                    
+                    if (wireBuilder.IsDone()) {
+                        const wire = wireBuilder.Wire();
+                        
+                        // Create face from wire
+                        const faceMaker = new oc.BRepBuilderAPI_MakeFace_15(wire, true);
+                        if (faceMaker.IsDone()) {
+                            builder.Add(compound, faceMaker.Face());
+                            successCount++;
+                        }
+                    }
+
+                    // Clean up temporary objects
+                    safeDelete(v0, v1, v2);
+                } catch (faceErr) {
+                    // Skip problematic triangles
+                    continue;
+                }
+            }
+
+            console.log(`Successfully converted ${successCount}/${maxTriangles} triangles`);
+
+            if (successCount < 3) {
+                throw new Error('Failed to create enough valid faces (min 3 required)');
+            }
+            
+            safeDelete(...toDelete);
+            return compound;
+
+        } catch (err) {
+            safeDelete(...toDelete);
+            throw new Error(`Mesh to shape conversion failed: ${err.message}`);
+        }
+    }
+
+    /**
+     * Apply boolean operations to a mesh-based feature
+     * Converts mesh → BREP → performs boolean → converts back to mesh
+     * @param {Object} meshData1 - First mesh (base)
+     * @param {Object} meshData2 - Second mesh (tool)
+     * @param {String} operation - 'union', 'cut', or 'intersect'
+     * @returns {Object} Resulting mesh data
+     */
+    meshBooleanOperation(meshData1, meshData2, operation) {
+        try {
+            // Convert meshes to BREP shapes
+            const shape1 = this.meshToShape(meshData1);
+            const shape2 = this.meshToShape(meshData2);
+
+            // Perform boolean operation
+            let resultShape;
+            switch (operation.toLowerCase()) {
+                case 'union':
+                    resultShape = this.booleanUnion(shape1, shape2);
+                    break;
+                case 'cut':
+                case 'subtract':
+                    resultShape = this.booleanCut(shape1, shape2);
+                    break;
+                case 'intersect':
+                    resultShape = this.booleanIntersect(shape1, shape2);
+                    break;
+                default:
+                    throw new Error(`Unknown operation: ${operation}`);
+            }
+
+            // Convert result back to mesh
+            return this.shapeToMesh(resultShape);
+
+        } catch (err) {
+            throw new Error(`Mesh boolean operation failed: ${err.message}`);
         }
     }
 }

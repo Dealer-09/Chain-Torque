@@ -1609,7 +1609,10 @@ const ViewportManager = forwardRef(({
   onModelCaptured,
   viewMode: viewModeProp,
   onViewModeChange,
-  onSketchesChange
+  onSketchesChange,
+  editMode,
+  editFeature,
+  onGeometryUpdate
 }, ref) => {
   // Use prop viewMode if provided, otherwise fallback to local state
   const [localViewMode, setLocalViewMode] = useState(modelUrl ? '3d' : '2d');
@@ -1878,6 +1881,9 @@ const ViewportManager = forwardRef(({
             onModelLoad={onModelLoad}
             onModelCaptured={onModelCaptured}
             activeTool={activeTool}
+            editMode={editMode}
+            editFeature={editFeature}
+            onGeometryUpdate={onGeometryUpdate}
           />
         )}
       </div>

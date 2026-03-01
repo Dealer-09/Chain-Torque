@@ -4,6 +4,7 @@ import { OrbitControls, TransformControls, Grid, Box, Sphere, Cylinder, Cone, Ht
 import * as THREE from 'three';
 import cadGeometryService from '../cad/CADGeometryService';
 import { sampleSketchPoints } from '../utils/geometryUtils';
+import MeshEditor from './MeshEditor';
 
 // Work plane grid
 const WorkPlane = () => (
@@ -115,8 +116,10 @@ const CameraController = forwardRef(({ orbitRef }, ref) => {
 
   // Sync internal ref with external orbitRef
   useEffect(() => {
-    if (orbitRef) orbitRef.current = controlsRef.current;
-  }, [controlsRef.current]);
+    if (orbitRef && controlsRef.current) {
+      orbitRef.current = controlsRef.current;
+    }
+  }, [orbitRef]);
 
   useImperativeHandle(ref, () => ({
     fitToScreen: () => {
@@ -171,7 +174,12 @@ const CameraController = forwardRef(({ orbitRef }, ref) => {
 
   return (
     <OrbitControls
-      ref={controlsRef}
+      ref={(controls) => {
+        controlsRef.current = controls;
+        if (orbitRef && controls) {
+          orbitRef.current = controls;
+        }
+      }}
       enablePan={true}
       enableZoom={true}
       enableRotate={true}
@@ -248,11 +256,22 @@ const LoadingSpinner = () => (
 );
 
 // Scene component — now manages selection + transform state
-const Scene = ({ cameraRef, orbitRef, modelUrl, onModelLoad, onModelCaptured, extrudedGeometries, sketches }) => {
+const Scene = ({ cameraRef, orbitRef, modelUrl, onModelLoad, onModelCaptured, extrudedGeometries, sketches, editMode, editFeature, onGeometryUpdate }) => {
   const [selectedObject, setSelectedObject] = useState(null);
   const [transformMode, setTransformMode] = useState('translate'); // translate, rotate, scale
   const transformRef = useRef();
   const modelRef = useRef();
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Scene props changed:', {
+      editMode,
+      hasEditFeature: !!editFeature,
+      editFeatureName: editFeature?.name,
+      editFeatureHasMeshData: !!editFeature?.meshData,
+      extrudedGeometriesCount: extrudedGeometries?.length
+    });
+  }, [editMode, editFeature, extrudedGeometries]);
 
   // Disable orbit controls while dragging the transform gizmo
   useEffect(() => {
@@ -328,7 +347,7 @@ const Scene = ({ cameraRef, orbitRef, modelUrl, onModelLoad, onModelCaptured, ex
       )}
 
       {/* TransformControls gizmo — attached to selected object */}
-      {selectedObject && (
+      {selectedObject && !editMode && (
         <TransformControls
           ref={transformRef}
           object={selectedObject}
@@ -338,9 +357,29 @@ const Scene = ({ cameraRef, orbitRef, modelUrl, onModelLoad, onModelCaptured, ex
       )}
 
       {/* Extruded geometries from OpenCascade */}
-      {extrudedGeometries.map((geo, i) => (
+      {!editMode && extrudedGeometries.map((geo, i) => (
         <ExtrudedMesh key={geo.id || i} meshData={geo.meshData} color={geo.color || '#4ecdc4'} />
       ))}
+
+      {/* Mesh Editor for vertex-level editing */}
+      {editMode && editFeature ? (
+        <MeshEditor 
+          feature={editFeature} 
+          onGeometryUpdate={onGeometryUpdate}
+          orbitRef={orbitRef}
+        />
+      ) : editMode ? (
+        <Html center>
+          <div style={{
+            padding: '20px',
+            background: 'rgba(255, 0, 0, 0.8)',
+            color: 'white',
+            borderRadius: '8px'
+          }}>
+            No feature selected for editing
+          </div>
+        </Html>
+      ) : null}
 
       {/* Sketch previews (wireframes) */}
       {sketches?.filter(s => !s.extruded).map((sketch, i) => (
@@ -425,13 +464,18 @@ const ThreeViewer = forwardRef((props, ref) => {
   const orbitRef = useRef();
   const [cadReady, setCadReady] = useState(false);
 
-  const { sketches = [], features = [], modelUrl, onModelLoad, onModelCaptured } = props;
+  const { sketches = [], features = [], modelUrl, onModelLoad, onModelCaptured, editMode, editFeature, onGeometryUpdate } = props;
 
   // Get 3D solids from features (extruded via sidebar)
   // Exclude AI-captured models — they're already rendered by the GLB primitive
   const featureSolids = features
     .filter(f => f.type === '3d-solid' && f.meshData && f.source !== 'ai-model')
-    .map(f => ({ id: f.id, meshData: f.meshData, color: '#4ecdc4' }));
+    .map(f => ({ 
+      id: f.id, 
+      meshData: f.meshData, 
+      color: f.color || '#4ecdc4',
+      name: f.name
+    }));
 
   // Initialize CAD service
   useEffect(() => {
@@ -465,6 +509,9 @@ const ThreeViewer = forwardRef((props, ref) => {
             onModelCaptured={onModelCaptured}
             extrudedGeometries={featureSolids}
             sketches={sketches}
+            editMode={editMode}
+            editFeature={editFeature}
+            onGeometryUpdate={onGeometryUpdate}
           />
         </Suspense>
       </Canvas>

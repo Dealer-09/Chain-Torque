@@ -28,6 +28,7 @@ import ViewportManager from "./components/ViewportManager.jsx";
 import FeatureTree from "./components/FeatureTree.jsx";
 import UploadToMarketplaceModal from "./components/UploadToMarketplaceModal.jsx";
 import CADOperations from "./components/CADOperations.jsx";
+import MeshOperations from "./components/MeshOperations.jsx";
 import ImageTo3D from "./components/ImageTo3D.jsx";
 import { FaMagic } from "react-icons/fa";
 import cadGeometryService from './cad/CADGeometryService';
@@ -37,10 +38,12 @@ const App = () => {
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [showImageTo3D, setShowImageTo3D] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
   const [activeTool, setActiveTool] = useState('select');
   const [activeView, setActiveView] = useState('iso');
   const [viewMode, setViewMode] = useState('2d'); // 2D sketch or 3D model
+  const [editMode, setEditMode] = useState(false); // Mesh vertex editing mode
+  const [editFeature, setEditFeature] = useState(null); // Feature being edited
   const [features, setFeatures] = useState([]);
   const [sketches, setSketches] = useState([]); // Hoisted from ViewportManager for operations
   const [selectedFeature, setSelectedFeature] = useState(null);
@@ -775,24 +778,53 @@ const App = () => {
             <div className="mode-toggle-compact">
               <button
                 className={`mode-btn-sm ${viewMode === '2d' ? 'active' : ''}`}
-                onClick={() => setViewMode('2d')}
+                onClick={() => { setViewMode('2d'); setEditMode(false); }}
                 title="2D Sketch (ESC)"
               >
                 2D
               </button>
               <button
-                className={`mode-btn-sm ${viewMode === '3d' ? 'active' : ''}`}
-                onClick={() => setViewMode('3d')}
+                className={`mode-btn-sm ${viewMode === '3d' && !editMode ? 'active' : ''}`}
+                onClick={() => { setViewMode('3d'); setEditMode(false); }}
                 title="3D Model (I)"
               >
                 3D
               </button>
+              <button
+                className={`mode-btn-sm ${editMode ? 'active' : ''}`}
+                onClick={() => { 
+                  console.log('Edit button clicked. Current state:', { editMode, selectedFeature, featuresCount: features.length });
+                  
+                  setViewMode('3d'); 
+                  setEditMode(!editMode);
+                  if (!editMode && selectedFeature?.meshData) {
+                    console.log('Setting editFeature to selectedFeature:', selectedFeature);
+                    setEditFeature(selectedFeature);
+                  } else if (!editMode) {
+                    // Find first mesh feature to edit
+                    const meshFeature = features.find(f => f.meshData && f.visible);
+                    console.log('Found mesh feature:', meshFeature);
+                    setEditFeature(meshFeature || null);
+                  } else {
+                    console.log('Exiting edit mode');
+                    setEditFeature(null);
+                  }
+                }}
+                title="Edit Mode - Modify mesh vertices (E)"
+                style={{
+                  background: editMode ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : undefined
+                }}
+              >
+                Edit
+              </button>
             </div>
 
-            <span className="viewport-label">{viewMode === '2d' ? '2D Sketch' : '3D Model'}</span>
+            <span className="viewport-label">
+              {viewMode === '2d' ? '2D Sketch' : editMode ? `Edit Mode${editFeature ? `: ${editFeature.name}` : ''}` : '3D Model'}
+            </span>
 
             {/* View controls - only in 3D mode */}
-            {viewMode === '3d' && (
+            {viewMode === '3d' && !editMode && (
               <div className="view-controls">
                 <button
                   className={activeView === 'front' ? 'active' : ''}
@@ -840,6 +872,13 @@ const App = () => {
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               onSketchesChange={setSketches}
+              editMode={editMode}
+              editFeature={editFeature}
+              onGeometryUpdate={(featureId, newMeshData) => {
+                setFeatures(prev => prev.map(f => 
+                  f.id === featureId ? { ...f, meshData: newMeshData } : f
+                ));
+              }}
             />
           </div>
         </div>
@@ -850,8 +889,40 @@ const App = () => {
             className="sidebar-toggle-btn"
             onClick={toggleSidebar}
             title="Open Feature Tree & Operations"
+            style={{
+              position: 'absolute',
+              right: '20px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 1000,
+              background: 'rgba(40, 44, 52, 0.95)',
+              border: '1px solid rgba(102, 126, 234, 0.4)',
+              borderRadius: '6px',
+              padding: '12px 20px',
+              color: '#fff',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.2s ease',
+              backdropFilter: 'blur(10px)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-50%) translateX(-2px)';
+              e.currentTarget.style.borderColor = 'rgba(102, 126, 234, 0.8)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(-50%)';
+              e.currentTarget.style.borderColor = 'rgba(102, 126, 234, 0.4)';
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+            }}
           >
-            <FaVectorSquare />
+            <FaVectorSquare size={16} />
+            <span>OPERATIONS</span>
           </button>
         )}
 
@@ -887,6 +958,15 @@ const App = () => {
                   height: extrudedGeometry.height,
                   visible: true
                 }]);
+              }}
+            />
+            <MeshOperations
+              features={features}
+              onOperationComplete={(resultFeature) => {
+                // Add boolean operation result to features
+                setFeatures(prev => [...prev, resultFeature]);
+                // Optionally switch to 3D view
+                setViewMode('3d');
               }}
             />
           </div>
