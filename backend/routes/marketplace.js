@@ -248,7 +248,16 @@ router.post('/sync-creation', async (req, res) => {
             status: 'active'
         });
 
-        await newItem.save();
+        try {
+            await newItem.save();
+        } catch (saveError) {
+            // Handle duplicate key error (E11000) - race condition with eventListener
+            if (saveError.code === 11000 || saveError.message?.includes('duplicate key')) {
+                console.log(`[Sync Creation] ℹ️ Item #${tokenId} already exists (race condition - returning success)`);
+                return res.json({ success: true, message: 'Item already synced (Race condition handled)', tokenId });
+            }
+            throw saveError; // Re-throw other errors
+        }
 
         // Update user stats (non-blocking - don't let stat update fail the sync)
         try {

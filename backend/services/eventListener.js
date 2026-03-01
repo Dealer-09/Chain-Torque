@@ -176,7 +176,12 @@ class EventListener {
             console.log(`[EventListener] Successfully auto-synced Item #${tokenId}`);
 
         } catch (err) {
-            console.error('[EventListener] Error processing MarketItemCreated:', err);
+            // Handle duplicate key error (race condition between eventListener and manual sync)
+            if (err.code === 11000 || err.message?.includes('duplicate key')) {
+                console.log(`[EventListener] ℹ️ Item #${tokenId} already exists (race condition handled)`);
+            } else {
+                console.error('[EventListener] Error processing MarketItemCreated:', err);
+            }
         }
     }
 
