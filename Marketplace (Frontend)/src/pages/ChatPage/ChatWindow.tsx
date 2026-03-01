@@ -58,6 +58,7 @@ const ChatWindow = ({ socket, currentUserWallet, selectedUser, isConnected }: Ch
         if (!socket) return;
 
         const handleReceiveMessage = (message: Message) => {
+            console.log("[Socket] Received message:", message);
             // Only append if it belongs to the current conversation
             const isRelevant =
                 (message.senderWallet.toLowerCase() === currentUserWallet.toLowerCase() && message.receiverWallet.toLowerCase() === selectedUser.walletAddress.toLowerCase()) ||

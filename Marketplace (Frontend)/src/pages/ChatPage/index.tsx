@@ -58,7 +58,8 @@ const ChatPage = () => {
         return () => {
             newSocket.disconnect();
         };
-    }, [currentUserWallet, toast]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentUserWallet]);
 
     return (
         <div className="min-h-screen flex flex-col bg-gray-50/50 dark:bg-zinc-950">

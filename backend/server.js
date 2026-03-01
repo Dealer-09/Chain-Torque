@@ -233,6 +233,7 @@ io.on('connection', (socket) => {
       if (!senderWallet || !receiverWallet || !content) {
         return console.error('[Socket.io] Missing required fields in send_message event.');
       }
+      console.log(`[Socket.io] Received 'send_message' from ${senderWallet} to ${receiverWallet}`);
 
       // 1. Save message to database
       const Message = require('./models/Message');
@@ -245,10 +246,12 @@ io.on('connection', (socket) => {
 
       // 2. Emit message to the receiver's room
       const receiverRoom = receiverWallet.toLowerCase();
+      console.log(`[Socket.io] Emitting 'receive_message' to receiverRoom: ${receiverRoom}`);
       io.to(receiverRoom).emit('receive_message', newMessage);
 
       // 3. Emit message back to sender (to confirm delivery across their tabs if logged in multiple places)
       const senderRoom = senderWallet.toLowerCase();
+      console.log(`[Socket.io] Emitting 'receive_message' to senderRoom: ${senderRoom}`);
       io.to(senderRoom).emit('receive_message', newMessage);
 
     } catch (error) {
