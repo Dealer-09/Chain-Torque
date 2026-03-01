@@ -72,35 +72,33 @@ export function HeroSection() {
 
   // Filter items based on search and category
   useEffect(() => {
-    if (items && items.length > 0) {
-      let filtered = items.map(transformItem);
-
-      // Apply search filter
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        filtered = filtered.filter(item =>
-          item.title.toLowerCase().includes(query) ||
-          item.seller.toLowerCase().includes(query)
-        );
-      }
-
-      // Apply category filter
-      if (selectedCategory) {
-        const cat = selectedCategory.toLowerCase();
-        filtered = filtered.filter(item =>
-          item.category && item.category.toLowerCase() === cat
-        );
-      }
-
-      // When searching/filtering, show filtered results (even if empty - don't show fallback)
-      setDisplayItems(filtered.slice(0, 8));
-    } else if (items.length === 0) {
-      // Only show fallback when there are NO items at all (empty marketplace)
+    // Handle empty or null items
+    if (!items || items.length === 0) {
       setDisplayItems(featuredModels);
-    } else {
-      // Show actual items when no search/filter
-      setDisplayItems(items.map(transformItem).slice(0, 8));
+      return;
     }
+
+    let filtered = items.map(transformItem);
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(item =>
+        item.title.toLowerCase().includes(query) ||
+        item.seller.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply category filter
+    if (selectedCategory) {
+      const cat = selectedCategory.toLowerCase();
+      filtered = filtered.filter(item =>
+        item.category && item.category.toLowerCase() === cat
+      );
+    }
+
+    // Show filtered results (up to 8 items)
+    setDisplayItems(filtered.slice(0, 8));
   }, [items, searchQuery, selectedCategory]);
 
   const handleSearch = () => {
