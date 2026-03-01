@@ -56,6 +56,7 @@ const App = () => {
   // Torquy AI Chat State
   const [aiInput, setAiInput] = useState('');
   const [aiIsLoading, setAiIsLoading] = useState(false);
+  const [aiGenerationMode, setAiGenerationMode] = useState('3d'); // '2d' or '3d'
   const [chatMessages, setChatMessages] = useState([
     {
       role: 'ai',
@@ -242,7 +243,8 @@ const App = () => {
         body: JSON.stringify({
           prompt: userMsg,
           chatHistory: chatMessages,
-          workspaceParams: { sketches: workspaceContext }
+          workspaceParams: { sketches: workspaceContext },
+          generationMode: aiGenerationMode
         })
       });
 
@@ -264,21 +266,32 @@ const App = () => {
       }]);
 
       // 1) If we got 2D Sketches back, load them into the workspace
-      if (data.sketches && data.sketches.length > 0 && viewportRef.current?.loadProjectData) {
-        // Append them to the existing ones
+      if (data.sketches && data.sketches.length > 0) {
+        // Give new sketches an ID, default visibility, and correctly format points for Canvas2D
+        const incomingSketches = data.sketches.map((s, idx) => {
+          const isCircle = s.type === 'circle' || s.type === 'circles';
+          return {
+            ...s, // Spread original properties first
+            id: `torquy_sketch_${Date.now()}_${idx}`,
+            name: `AI Sketch ${idx + 1}`,
+            visible: true,
+            type: isCircle ? 'circles' : s.type, // Override with Canvas2D enforced types
+            original2DPoints: s.points, // Canvas2D requires this key for rendering polygons
+            originalCircles: isCircle && s.center && s.radius ? [{ center: s.center, radius: s.radius }] : (s.originalCircles || undefined),
+            closed: true // Auto-close AI geometry
+          };
+        });
+
         let currentSketches = [];
         if (viewportRef.current?.getProjectData) {
           currentSketches = viewportRef.current.getProjectData().sketches || [];
         }
+        const combinedSketches = [...currentSketches, ...incomingSketches];
 
-        // Give new sketches an ID and default visibility
-        const incomingSketches = data.sketches.map((s, idx) => ({
-          id: `torquy_sketch_${Date.now()}_${idx}`,
-          visible: true,
-          ...s
-        }));
-
-        viewportRef.current.loadProjectData({ sketches: [...currentSketches, ...incomingSketches] });
+        if (viewportRef.current?.loadProjectData) {
+          viewportRef.current.loadProjectData({ sketches: combinedSketches });
+        }
+        setSketches(combinedSketches); // Keep App.jsx in sync
         setViewMode('2d'); // Hop into sketch view to see them
       }
 
@@ -908,23 +921,47 @@ const App = () => {
               </div>
             )}
           </div>
-          <div className="chat-input">
-            <input
-              type="text"
-              value={aiInput}
-              onChange={(e) => setAiInput(e.target.value)}
-              placeholder="E.g. Create a red sphere..."
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') handleAICommand()
-              }}
-              disabled={aiIsLoading}
-            />
-            <button
-              onClick={handleAICommand}
-              disabled={aiIsLoading || !aiInput.trim()}
-            >
-              Send
-            </button>
+          <div className="chat-input-container">
+            <div className="ai-mode-selector" style={{ display: 'flex', gap: '10px', marginBottom: '8px', fontSize: '12px', justifyContent: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: aiGenerationMode === '2d' ? '#4ecdc4' : '#888' }}>
+                <input
+                  type="radio"
+                  name="aiMode"
+                  value="2d"
+                  checked={aiGenerationMode === '2d'}
+                  onChange={() => setAiGenerationMode('2d')}
+                  style={{ cursor: 'pointer' }}
+                /> 2D Sketch
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: aiGenerationMode === '3d' ? '#4ecdc4' : '#888' }}>
+                <input
+                  type="radio"
+                  name="aiMode"
+                  value="3d"
+                  checked={aiGenerationMode === '3d'}
+                  onChange={() => setAiGenerationMode('3d')}
+                  style={{ cursor: 'pointer' }}
+                /> 3D Solid
+              </label>
+            </div>
+            <div className="chat-input">
+              <input
+                type="text"
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                placeholder="E.g. Create a red sphere..."
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') handleAICommand()
+                }}
+                disabled={aiIsLoading}
+              />
+              <button
+                onClick={handleAICommand}
+                disabled={aiIsLoading || !aiInput.trim()}
+              >
+                Send
+              </button>
+            </div>
           </div>
         </div>
       </div>

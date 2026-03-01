@@ -76,7 +76,8 @@ class CADGeometryService {
         let axis = null, origin = null, direction = null;
 
         try {
-            origin = new oc.gp_Pnt_3(position.x, position.y, position.z);
+            // Center the cylinder around its Z position to ensure it intersects completely
+            origin = new oc.gp_Pnt_3(position.x, position.y, position.z - height / 2);
             direction = new oc.gp_Dir_4(0, 0, 1);
             axis = new oc.gp_Ax2_3(origin, direction);
 
@@ -237,11 +238,11 @@ class CADGeometryService {
     booleanUnion(shape1, shape2) {
         const oc = getOC();
         let progress = null;
-
         try {
             progress = new oc.Message_ProgressRange_1();
             const fuse = new oc.BRepAlgoAPI_Fuse_3(shape1, shape2, progress);
             const result = fuse.Shape();
+            safeDelete(fuse);
             safeDelete(progress);
             return result;
         } catch (err) {
@@ -256,11 +257,11 @@ class CADGeometryService {
     booleanCut(shape1, shape2) {
         const oc = getOC();
         let progress = null;
-
         try {
             progress = new oc.Message_ProgressRange_1();
             const cut = new oc.BRepAlgoAPI_Cut_3(shape1, shape2, progress);
             const result = cut.Shape();
+            safeDelete(cut);
             safeDelete(progress);
             return result;
         } catch (err) {
@@ -275,11 +276,11 @@ class CADGeometryService {
     booleanIntersect(shape1, shape2) {
         const oc = getOC();
         let progress = null;
-
         try {
             progress = new oc.Message_ProgressRange_1();
             const common = new oc.BRepAlgoAPI_Common_3(shape1, shape2, progress);
             const result = common.Shape();
+            safeDelete(common);
             safeDelete(progress);
             return result;
         } catch (err) {
