@@ -65,7 +65,12 @@ const ChatWindow = ({ socket, currentUserWallet, selectedUser, isConnected }: Ch
                 (message.senderWallet.toLowerCase() === selectedUser.walletAddress.toLowerCase() && message.receiverWallet.toLowerCase() === currentUserWallet.toLowerCase());
 
             if (isRelevant) {
-                setMessages((prev) => [...prev, message]);
+                setMessages((prev) => {
+                    // Deduplicate logic: if message already exists (from optimistic update), don't add it again
+                    const exists = prev.some(m => m._id === message._id);
+                    if (exists) return prev;
+                    return [...prev, message];
+                });
             }
         };
 
@@ -79,6 +84,19 @@ const ChatWindow = ({ socket, currentUserWallet, selectedUser, isConnected }: Ch
     const handleSendMessage = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMessage.trim() || !socket) return;
+
+        // Optimistic UI Update: instantly show message to the sender
+        const tempId = `temp-${Date.now()}`;
+        const optimisticMsg: Message = {
+            _id: tempId,
+            senderWallet: currentUserWallet,
+            receiverWallet: selectedUser.walletAddress,
+            content: newMessage.trim(),
+            read: true, // Sender already read their own msg
+            createdAt: new Date().toISOString()
+        };
+
+        setMessages((prev) => [...prev, optimisticMsg]);
 
         socket.emit('send_message', {
             senderWallet: currentUserWallet,

@@ -242,17 +242,18 @@ io.on('connection', (socket) => {
         receiverWallet: receiverWallet.toLowerCase(),
         content
       });
-      await newMessage.save();
+      const savedMessage = await newMessage.save();
+      const messageObj = savedMessage.toJSON();
 
       // 2. Emit message to the receiver's room
       const receiverRoom = receiverWallet.toLowerCase();
       console.log(`[Socket.io] Emitting 'receive_message' to receiverRoom: ${receiverRoom}`);
-      io.to(receiverRoom).emit('receive_message', newMessage);
+      io.to(receiverRoom).emit('receive_message', messageObj);
 
       // 3. Emit message back to sender (to confirm delivery across their tabs if logged in multiple places)
       const senderRoom = senderWallet.toLowerCase();
       console.log(`[Socket.io] Emitting 'receive_message' to senderRoom: ${senderRoom}`);
-      io.to(senderRoom).emit('receive_message', newMessage);
+      io.to(senderRoom).emit('receive_message', messageObj);
 
     } catch (error) {
       console.error('[Socket.io] Error in send_message event:', error.message);
