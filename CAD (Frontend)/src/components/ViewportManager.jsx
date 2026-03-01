@@ -1027,11 +1027,7 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
   };
 
   const handleWheel = (e) => {
-    // The passive React event listener is forbidden from calling e.preventDefault()
-    // It is handled gracefully by nativeEventListeners below!
-    const delta = e.deltaY * -0.001;
-    const newZoom = Math.min(Math.max(0.1, zoom + delta), 5);
-    setZoom(newZoom);
+    // Moved to native event listener
   };
 
   // Prevent browser zoom on the canvas container
@@ -1043,6 +1039,9 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
       // Unconditionally stop native scroll & zoom from propagating against the 2D canvas zooming capability
       e.preventDefault();
       e.stopPropagation();
+
+      const delta = e.deltaY * -0.001;
+      setZoom(prev => Math.min(Math.max(0.1, prev + delta), 5));
     };
 
     if (canvas) {

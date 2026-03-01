@@ -122,7 +122,7 @@ const getGroq = () => {
  */
 router.post('/torquy', async (req, res) => {
     try {
-        const { prompt, chatHistory = [], workspaceParams = {} } = req.body;
+        const { prompt, chatHistory = [], workspaceParams = {}, generationMode = '3d' } = req.body;
         if (!prompt) {
             return res.status(400).json({ success: false, message: 'No prompt provided' });
         }
@@ -133,9 +133,17 @@ If the user wants to draw a flat profile, sketch, or polygon to extrude later, Y
 If the user wants a primitive 3D solid or an engineering model, use the "shapes" array.
 CRITICAL RULE 1: Sizing and placement MUST be highly precise and spatially coherent (like actual CAD dimensions).
 CRITICAL RULE 2: You MUST assign each distinct shape a UNIQUE, appropriate, engineering-grade HEX color representing materials (like steel gray #B0C4DE, brass #B5A642, dark chrome #2d2d2d, bright red paint #E32636, etc). NEVER make the entire assembly a single color unless explicitly asked.
+CRITICAL RULE 3: For 3D SOLID operations, keep ALL dimensions small and bounded (a "large" box is 50 units max). For 2D SKETCH mode, you must use substantially larger values (e.g. coordinates spanning 100 to 400) so they comfortably fill an 800x600 canvas coordinate grid.
+CRITICAL RULE 4: For subtraction/cut tools (like cylinder holes), you MUST make their length/height significantly larger than the base shape to cleanly pierce through it (e.g., if the box height is 10, the cylinder height should be 30).
 
 Current Workspace Context:
 The user currently has ${workspaceParams.sketches?.length || 0} sketches drawn on their board.
+
+*** GENERATION MODE: ${generationMode.toUpperCase()} ***
+${generationMode === '2d'
+                ? "The user has explicitly selected 2D SKETCH mode. You MUST NOT generate any 3D shapes or boolean_operations. You must ONLY output your geometric data into the 'sketches' array. IMPORTANT: Assume a canvas size of 800x600 for 2D mode, so generate significantly larger objects (e.g. coordinates from -200 to +200) instead of tiny 10-unit shapes, so it is easily visible."
+                : "The user has explicitly selected 3D SOLID mode. You MUST NOT generate any 2D sketches. You must ONLY output your geometric data into the 'shapes' array (and mathematically carve them using the 'boolean_operations' array if necessary). Keep 'sketches' completely empty."
+            }
 
 Your response MUST be ONLY valid JSON matching this exact schema:
 {
@@ -155,14 +163,23 @@ Your response MUST be ONLY valid JSON matching this exact schema:
   ],
   "shapes": [
     {
+      "id": "unique_string_id_like_engine_block",
       "type": "cube|sphere|cylinder|cone|plane",
       "parameters": {
-        "width": number, "height": number, "depth": number,
-        "radius": number, "radiusTop": number, "radiusBottom": number
+        "width": number, "height": number, "depth": number, // FOR CUBE
+        "radius": number, "height": number, // FOR CYLINDER/CONE (HEIGHT IS MANDATORY)
+        "radiusTop": number, "radiusBottom": number // OPTIONAL
       },
       "position": { "x": number, "y": number, "z": number },
       "rotation": { "x": number, "y": number, "z": number },
       "color": "UNIQUE hex string representing a distinct engineering material color (DO NOT default to a single color)"
+    }
+  ],
+  "boolean_operations": [
+    {
+      "type": "subtract|union|intersect",
+      "baseShapeId": "id_of_the_main_body",
+      "toolShapeId": "id_of_the_shape_to_carve_with"
     }
   ]
 }
@@ -210,6 +227,7 @@ Only output valid JSON, with absolutely no markdown wrapping, thinking text, or 
             reply: parsedResult.reply || "Done.",
             plan: parsedResult.plan || [],
             shapes: parsedResult.shapes || [],
+            boolean_operations: parsedResult.boolean_operations || [],
             sketches: parsedResult.sketches || []
         });
 
