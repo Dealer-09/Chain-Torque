@@ -31,9 +31,13 @@ class EventListener {
             console.log(`[EventListener] Starting from block ${this.lastProcessedBlock}`);
 
             this.isListening = true;
+            this.pollCount = 0;
 
             // Poll every 10 seconds
             setInterval(() => this.pollEvents(), 10000);
+
+            // Periodic full re-sync every 5 minutes to catch desyncs
+            setInterval(() => this.periodicResync(), 5 * 60 * 1000);
 
         } catch (error) {
             console.error('[EventListener] Start failed:', error);
@@ -79,6 +83,38 @@ class EventListener {
 
         } catch (err) {
             console.error('[EventListener] Polling error:', err.message);
+        }
+    }
+
+    async periodicResync() {
+        if (!web3.isReady()) return;
+        try {
+            const currentTokenId = Number(await web3.contract.getCurrentTokenId());
+            let healed = 0;
+
+            for (let i = 1; i <= currentTokenId; i++) {
+                try {
+                    const onChainItem = await web3.contract.getMarketItem(i);
+                    const chainStatus = onChainItem.sold ? 'sold' : 'active';
+                    const chainOwner = onChainItem.owner.toLowerCase();
+
+                    const dbItem = await MarketItem.findOne({ tokenId: i });
+                    if (dbItem && (dbItem.status !== chainStatus || dbItem.owner !== chainOwner)) {
+                        console.log(`[EventListener] Re-sync healing token #${i}: ${dbItem.status}->${chainStatus}`);
+                        dbItem.status = chainStatus;
+                        dbItem.owner = chainOwner;
+                        if (chainStatus === 'sold' && !dbItem.soldAt) dbItem.soldAt = new Date();
+                        await dbItem.save();
+                        healed++;
+                    }
+                } catch (e) {
+                    // skip individual token errors
+                }
+            }
+
+            if (healed > 0) console.log(`[EventListener] Periodic re-sync healed ${healed} items`);
+        } catch (err) {
+            console.error('[EventListener] Periodic re-sync error:', err.message);
         }
     }
 
@@ -163,7 +199,7 @@ class EventListener {
                 modelUrl,
                 tokenURI,
                 seller: seller.toLowerCase(),
-                owner: seller.toLowerCase(),
+                owner: web3.contractAddress.toLowerCase(), // NFT is held by contract when listed
                 creator: seller.toLowerCase(),
                 username: creatorName,
                 royalty: royaltyPercentage,

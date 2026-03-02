@@ -103,7 +103,6 @@ export function HeroSection() {
 
   const handleSearch = () => {
     // Trigger re-filter (already handled by useEffect)
-    console.log('Searching for:', searchQuery);
   };
 
   return (
@@ -298,7 +297,7 @@ export function HeroSection() {
                 <h3 className='font-semibold text-foreground tracking-tight'>Best Sellers</h3>
               </div>
               <div className='grid grid-cols-2 gap-3 relative z-10'>
-                {displayItems.slice(0, 4).map((item, i) => (
+                {[...displayItems].sort((a, b) => (b.downloads || 0) - (a.downloads || 0)).slice(0, 4).map((item, i) => (
                   <Link key={`best-${i}`} to={`/product/${item.tokenId}`} className='aspect-square rounded-xl overflow-hidden bg-muted group/item relative'>
                     <img src={item.image} alt={item.title} className='w-full h-full object-cover transition-transform duration-500 group-hover/item:scale-110' />
                     <div className='absolute inset-0 bg-black/20 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300 flex items-center justify-center'>
@@ -318,7 +317,7 @@ export function HeroSection() {
                 <h3 className='font-semibold text-foreground tracking-tight'>New Arrivals</h3>
               </div>
               <div className='grid grid-cols-2 gap-3 relative z-10'>
-                {displayItems.slice(0, 4).map((item, i) => (
+                {[...displayItems].sort((a, b) => b.tokenId - a.tokenId).slice(0, 4).map((item, i) => (
                   <Link key={`new-${i}`} to={`/product/${item.tokenId}`} className='aspect-square rounded-xl overflow-hidden bg-muted group/item relative'>
                     <img src={item.image} alt={item.title} className='w-full h-full object-cover transition-transform duration-500 group-hover/item:scale-110' />
                     <div className='absolute inset-0 bg-black/20 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300 flex items-center justify-center'>
@@ -338,7 +337,7 @@ export function HeroSection() {
                 <h3 className='font-semibold text-foreground tracking-tight'>Top Rated</h3>
               </div>
               <div className='grid grid-cols-2 gap-3 relative z-10'>
-                {displayItems.slice(0, 4).map((item, i) => (
+                {[...displayItems].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 4).map((item, i) => (
                   <Link key={`top-${i}`} to={`/product/${item.tokenId}`} className='aspect-square rounded-xl overflow-hidden bg-muted group/item relative'>
                     <img src={item.image} alt={item.title} className='w-full h-full object-cover transition-transform duration-500 group-hover/item:scale-110' />
                     <div className='absolute inset-0 bg-black/20 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300 flex items-center justify-center'>
@@ -378,8 +377,8 @@ export function HeroSection() {
                   : featuredModels[index % featuredModels.length].image,
                 price: item.price ? `${parseFloat(item.price).toFixed(4)} ETH` : '0.01 ETH',
                 seller: item.username || 'Creator',
-                rating: 4.5 + Math.random() * 0.5,
-                downloads: parseInt(item.downloads) || Math.floor(Math.random() * 1000) + 100,
+                rating: item.rating || 4.5,
+                downloads: parseInt(item.downloads) || 0,
                 fileTypes: ['GLB', 'STL'],
                 software: ['Blender', 'Three.js'],
               };

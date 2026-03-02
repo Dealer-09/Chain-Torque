@@ -27,13 +27,13 @@ const TransactionSchema = new mongoose.Schema({
   // Transaction Details
   type: {
     type: String,
-    enum: ['mint', 'purchase', 'transfer', 'listing'],
+    enum: ['mint', 'purchase', 'transfer', 'listing', 'relist'],
     required: true,
     index: true
   },
   price: {
     type: Number,
-    required: function() { return this.type === 'purchase' || this.type === 'listing'; }
+    required: function() { return ['purchase', 'listing', 'relist'].includes(this.type); }
   },
   currency: {
     type: String,

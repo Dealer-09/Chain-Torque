@@ -185,6 +185,9 @@ const Upload: React.FC = () => {
 
       // Get category ID (simple mapping)
       const categoryMap: Record<string, number> = {
+        'architecture': 10, 'vehicles': 10, 'characters': 10, 'furniture': 10,
+        'electronics': 1, 'nature': 10, 'other': 10,
+        // PascalCase aliases for backwards compatibility
         'Electronics': 1, 'Collectibles': 2, 'Art': 3, 'Music': 4, 'Gaming': 5,
         'Sports': 6, 'Photography': 7, 'Virtual Real Estate': 8, 'Domain Names': 9, 'Utility': 10,
         'Automotive': 10, 'Mechanical': 10, 'Aerospace': 10, 'Industrial': 10, 'Other': 10

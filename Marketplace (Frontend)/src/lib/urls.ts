@@ -12,7 +12,6 @@ export let activeBackendUrl: string | null = null;
  */
 export const switchToFallbackBackend = () => {
     if (activeBackendUrl !== FALLBACK_BACKEND_URL) {
-        console.log('🔄 Switching to fallback backend:', FALLBACK_BACKEND_URL);
         activeBackendUrl = FALLBACK_BACKEND_URL;
     }
 };

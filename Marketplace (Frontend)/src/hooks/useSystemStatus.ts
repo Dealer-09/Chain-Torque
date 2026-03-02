@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { getBackendUrl } from '@/lib/urls';
 
 interface SystemStatus {
   backend: string;
@@ -7,18 +8,6 @@ interface SystemStatus {
   lastCheck: string;
   marketplaceItems: number;
 }
-
-// Backend URLs for fallback support
-const PRIMARY_BACKEND_URL = 'https://chaintorque-backend.onrender.com';
-const FALLBACK_BACKEND_URL = 'https://chain-torque-backend.onrender.com';
-
-// Detect production vs development with fallback support
-const getBackendUrl = (useFallback: boolean = false) => {
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return 'http://localhost:5001';
-  }
-  return useFallback ? FALLBACK_BACKEND_URL : PRIMARY_BACKEND_URL;
-};
 
 export const useSystemStatus = () => {
   const [status, setStatus] = useState<SystemStatus>({
@@ -30,51 +19,37 @@ export const useSystemStatus = () => {
   });
 
   const [isLoading, setIsLoading] = useState(true);
-  const usingFallback = useRef(false);
-  const backendUrl = getBackendUrl(usingFallback.current);
 
   const checkBackend = async () => {
     setIsLoading(true);
+    const backendUrl = getBackendUrl();
     try {
-      // Check basic health
       const healthResponse = await fetch(`${backendUrl}/health`);
       const backendStatus = healthResponse.ok ? 'connected' : 'error';
 
-      // Check web3 status
       let web3Status = 'disconnected';
       let contractStatus = 'not deployed';
       try {
-        const web3Response = await fetch(
-          `${backendUrl}/api/web3/status`
-        );
+        const web3Response = await fetch(`${backendUrl}/api/web3/status`);
         if (web3Response.ok) {
           const web3Data = await web3Response.json();
-          // Backend returns data directly, not wrapped in 'data' field
           web3Status = web3Data.connected ? 'connected' : 'disconnected';
-          contractStatus = web3Data.contractDeployed
-            ? 'deployed'
-            : 'not deployed';
+          contractStatus = web3Data.contractDeployed ? 'deployed' : 'not deployed';
         }
-      } catch (error) {
+      } catch {
         web3Status = 'error';
       }
 
-      // Check marketplace API
       let itemCount = 0;
       try {
-        const marketplaceResponse = await fetch(
-          `${backendUrl}/api/marketplace`
-        );
+        const marketplaceResponse = await fetch(`${backendUrl}/api/marketplace`);
         if (marketplaceResponse.ok) {
           const marketplaceData = await marketplaceResponse.json();
-          // Backend refactor returns { success: true, data: [...] }
           const items = marketplaceData.data || marketplaceData.items || [];
-          itemCount = Array.isArray(items)
-            ? items.length
-            : marketplaceData.total || 0;
+          itemCount = Array.isArray(items) ? items.length : marketplaceData.total || 0;
         }
-      } catch (error) {
-        console.log('Marketplace API error:', error);
+      } catch {
+        // marketplace check failed
       }
 
       setStatus({
@@ -84,7 +59,7 @@ export const useSystemStatus = () => {
         lastCheck: new Date().toLocaleTimeString(),
         marketplaceItems: itemCount,
       });
-    } catch (error) {
+    } catch {
       setStatus({
         backend: 'disconnected',
         web3: 'disconnected',
@@ -99,15 +74,13 @@ export const useSystemStatus = () => {
 
   useEffect(() => {
     checkBackend();
-    const interval = setInterval(checkBackend, 30000); // Check every 30 seconds
+    const interval = setInterval(checkBackend, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Determine overall system status
   const getOverallStatus = () => {
     if (isLoading) return 'checking';
-    if (status.backend === 'connected' && status.web3 === 'connected')
-      return 'healthy';
+    if (status.backend === 'connected' && status.web3 === 'connected') return 'healthy';
     if (status.backend === 'connected') return 'partial';
     return 'error';
   };

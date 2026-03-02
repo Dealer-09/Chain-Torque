@@ -96,70 +96,57 @@ function getFileExtension(url: string, fileType?: string): string {
   return url.split('.').pop()?.toLowerCase() || '';
 }
 
-function Model({ url, fileType }: { url: string; fileType?: string }) {
-  const extension = getFileExtension(url, fileType);
+function GLBModel({ url }: { url: string }) {
+  const gltfResult = useGLTF(url);
 
-  // Debug logging
-  console.log('🔍 Model Debug Info:', {
-    url,
-    fileType,
-    detectedExtension: extension,
-    supportedFormats: ['glb', 'gltf', 'stl', 'obj']
+  if (!gltfResult || !gltfResult.scene) {
+    return (
+      <mesh>
+        <boxGeometry args={[2, 0.5, 0.1]} />
+        <meshStandardMaterial color="#ff6b6b" />
+      </mesh>
+    );
+  }
+
+  return <primitive object={gltfResult.scene} />;
+}
+
+function STLModel({ url }: { url: string }) {
+  const stlGeometry = useLoader(STLLoader, url);
+  const stlMaterial = new THREE.MeshStandardMaterial({
+    color: '#60a5fa',
+    metalness: 0.3,
+    roughness: 0.4
   });
+  return <mesh geometry={stlGeometry} material={stlMaterial} />;
+}
 
-  // Handle different file formats
-  switch (extension) {
-    case 'glb':
-    case 'gltf':
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      const gltfResult = useGLTF(url);
-      console.log('✅ GLB/GLTF loaded successfully:', gltfResult);
-
-      if (!gltfResult || !gltfResult.scene) {
-        console.error('❌ GLB/GLTF scene is null or undefined', gltfResult);
-        return (
-          <mesh>
-            <boxGeometry args={[2, 0.5, 0.1]} />
-            <meshStandardMaterial color="#ff6b6b" />
-          </mesh>
-        );
-      }
-
-      // Ensure the scene has some content
-      if (gltfResult.scene.children.length === 0) {
-        console.warn('⚠️ GLB/GLTF scene has no children');
-      }
-
-      return <primitive object={gltfResult.scene} />;
-
-    case 'stl':
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      const stlGeometry = useLoader(STLLoader, url);
-      const stlMaterial = new THREE.MeshStandardMaterial({
+function OBJModel({ url }: { url: string }) {
+  const objGroup = useLoader(OBJLoader, url);
+  objGroup.traverse((child: any) => {
+    if (child.isMesh && !child.material) {
+      child.material = new THREE.MeshStandardMaterial({
         color: '#60a5fa',
         metalness: 0.3,
         roughness: 0.4
       });
-      return <mesh geometry={stlGeometry} material={stlMaterial} />;
+    }
+  });
+  return <primitive object={objGroup} />;
+}
 
+function Model({ url, fileType }: { url: string; fileType?: string }) {
+  const extension = getFileExtension(url, fileType);
+
+  switch (extension) {
+    case 'glb':
+    case 'gltf':
+      return <GLBModel url={url} />;
+    case 'stl':
+      return <STLModel url={url} />;
     case 'obj':
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      const objGroup = useLoader(OBJLoader, url);
-      // Apply default material to OBJ if it doesn't have one
-      objGroup.traverse((child: any) => {
-        if (child.isMesh && !child.material) {
-          child.material = new THREE.MeshStandardMaterial({
-            color: '#60a5fa',
-            metalness: 0.3,
-            roughness: 0.4
-          });
-        }
-      });
-      return <primitive object={objGroup} />;
-
+      return <OBJModel url={url} />;
     default:
-      // Fallback for unsupported formats - show error message
-      console.warn(`Unsupported 3D file format: ${extension}. Supported formats: GLB, GLTF, STL, OBJ`);
       return (
         <mesh>
           <boxGeometry args={[2, 0.5, 0.1]} />

@@ -123,37 +123,36 @@ const ProductDetail = () => {
       price: `$${parseFloat(backendData.price) * 2000}`,
       priceETH: parseFloat(backendData.price),
       seller: {
-        // SECURITY: Never show wallet address in UI - only show username or generic "Creator"
         name:
           backendData.username ||
           backendData.sellerName ||
           backendData.seller_name ||
-          'Creator', // Don't use backendData.seller (wallet address) as it exposes user's address
+          'Creator',
         avatar:
           `https://api.dicebear.com/7.x/avataaars/svg?seed=${backendData.username || backendData.sellerName || 'creator'}`,
         verified: true,
-        rating: 4.8,
-        totalSales: Math.floor(Math.random() * 50) + 10,
+        rating: backendData.sellerRating || 4.8,
+        totalSales: backendData.sellerTotalSales || 0,
       },
       specs: {
-        fileTypes: ['GLB', 'OBJ', 'STL'],
-        software: ['SolidWorks', 'AutoCAD', 'Fusion 360'],
-        fileSize: '15.2 MB',
-        vertices: '127,543',
-        polygons: '89,231',
-        textures: true,
-        animated: false,
+        fileTypes: backendData.fileTypes || ['GLB'],
+        software: backendData.software || ['Blender'],
+        fileSize: backendData.fileSize || 'N/A',
+        vertices: backendData.vertices || 'N/A',
+        polygons: backendData.polygons || 'N/A',
+        textures: backendData.textures || false,
+        animated: backendData.animated || false,
       },
       stats: {
-        views: Math.floor(Math.random() * 1000) + 100,
-        downloads: Math.floor(Math.random() * 50) + 10,
-        rating: 4.5 + Math.random() * 0.5,
-        reviews: Math.floor(Math.random() * 20) + 5,
+        views: backendData.views || 0,
+        downloads: backendData.downloads || 0,
+        rating: backendData.rating || 0,
+        reviews: backendData.reviews || 0,
       },
       category: backendData.category,
-      tags: ['CAD', '3D Model', backendData.category, 'Professional'],
-      uploadDate: new Date().toISOString().split('T')[0],
-      lastUpdate: new Date().toISOString().split('T')[0],
+      tags: ['CAD', '3D Model', backendData.category, 'Professional'].filter(Boolean),
+      uploadDate: backendData.createdAt ? new Date(backendData.createdAt).toISOString().split('T')[0] : 'N/A',
+      lastUpdate: backendData.updatedAt ? new Date(backendData.updatedAt).toISOString().split('T')[0] : 'N/A',
       license: 'Standard License',
       tokenId: backendData.tokenId ? parseInt(backendData.tokenId, 10) : undefined,
       contractAddress: CONTRACT_ADDRESS,
@@ -206,8 +205,6 @@ const ProductDetail = () => {
         return;
       }
 
-      console.log('Initiating decentralized purchase for:', model.title, model.priceETH);
-
       // 1. Sign and Pay via Metamask (Decentralized)
       const { web3Service } = await import('@/services/web3Service');
 
@@ -230,7 +227,6 @@ const ProductDetail = () => {
       let tx;
       try {
         tx = await web3Service.purchaseItem(model.tokenId!, model.priceETH!);
-        console.log('Transaction sent:', tx.transactionHash);
       } catch (web3Error: any) {
         // Handle Metamask rejections explicitly
         if (web3Error.code === 'ACTION_REJECTED' || web3Error.message?.includes('user rejected')) {
@@ -243,7 +239,6 @@ const ProductDetail = () => {
       const signerAddress = await web3Service.signer?.getAddress();
       const userAddress = signerAddress || user?.primaryWeb3Wallet?.web3Wallet || localStorage.getItem('walletAddress') || '';
 
-      console.log('Syncing purchase with backend...');
       const syncResponse = await apiService.syncPurchase(
         model.tokenId!,
         tx.transactionHash,
@@ -530,9 +525,6 @@ const ProductDetail = () => {
                       </div>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm">
-                    View Profile
-                  </Button>
                 </div>
               </CardContent>
             </Card>

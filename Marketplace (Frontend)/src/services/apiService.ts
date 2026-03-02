@@ -68,7 +68,6 @@ const API_BASE_URL = getApiBaseUrl();
 // Helper to switch to fallback URL
 const switchToFallback = () => {
   if (activeApiUrl !== FALLBACK_API_URL) {
-    console.log('🔄 Switching to fallback backend:', FALLBACK_API_URL);
     activeApiUrl = FALLBACK_API_URL;
   }
 };
@@ -163,10 +162,6 @@ class ApiService {
     return this.request('/web3/status', { method: 'GET' });
   }
 
-  async initializeWeb3(): Promise<ApiResponse<{ connected: boolean; account: string }>> {
-    return this.request('/web3/connect', { method: 'POST' });
-  }
-
   async validateAddress(address: string): Promise<ApiResponse<{ valid: boolean }>> {
     return this.request('/web3/validate-address', {
       method: 'POST',
@@ -211,6 +206,22 @@ class ApiService {
         tokenId: Number(tokenId),
         transactionHash,
         buyerAddress,
+        price
+      }),
+    });
+  }
+
+  /**
+   * Syncs a client-side relist with the backend database
+   * Called after user successfully calls relistToken from their wallet
+   */
+  async syncRelist(tokenId: number | string, transactionHash: string, sellerAddress: string, price: string): Promise<ApiResponse<any>> {
+    return this.request('/marketplace/sync-relist', {
+      method: 'POST',
+      body: JSON.stringify({
+        tokenId: Number(tokenId),
+        transactionHash,
+        sellerAddress,
         price
       }),
     });
@@ -268,14 +279,6 @@ class ApiService {
     return this.request(`/user/${userAddress}/purchases`, { method: 'GET' });
   }
 
-  async getUserSales(userAddress: string): Promise<ApiResponse<any[]>> {
-    return this.request(`/user/${userAddress}/sales`, { method: 'GET' });
-  }
-
-  async getUserProfileByAddress(userAddress: string): Promise<ApiResponse<any>> {
-    return this.request(`/user/${userAddress}/profile`, { method: 'GET' });
-  }
-
   /**
    * legacy method removed. Use purchaseItem (web3) + syncPurchase (api) instead.
    */
@@ -327,17 +330,15 @@ export default apiService;
 export const {
   healthCheck,
   getWeb3Status,
-  initializeWeb3,
   validateAddress,
   getBalance,
   getMarketplaceItems,
   getMarketplaceItem,
   getUserNFTs,
   getUserPurchases,
-  getUserSales,
-  getUserProfileByAddress,
   getMarketplaceStats,
   syncPurchase,
+  syncRelist,
   getUserProfile,
   uploadFile,
   isBackendConnected,

@@ -218,8 +218,28 @@ router.post('/sync-creation', async (req, res) => {
         console.log(`[Sync Creation] Checking if token ${tokenId} already exists in database...`);
         const existingItem = await MarketItem.findOne({ tokenId: parseInt(tokenId) });
         if (existingItem) {
-            console.log(`[Sync Creation] ⚠️ Item already synced (Idempotent) - token ${tokenId}`);
-            return res.json({ success: true, message: 'Item already synced (Idempotent)', tokenId });
+            // EventListener may have created a partial entry — enrich it with user-provided data
+            let updated = false;
+            if (title && title !== existingItem.title) { existingItem.title = title; updated = true; }
+            if (description && description !== existingItem.description) { existingItem.description = description; updated = true; }
+            if (category && category !== existingItem.category) { existingItem.category = category; updated = true; }
+            if (imageUrl && !existingItem.imageUrl) { existingItem.imageUrl = imageUrl; updated = true; }
+            if (images && images.length > 0 && existingItem.images.length <= 1) { existingItem.images = images; updated = true; }
+            if (modelUrl && !existingItem.modelUrl) { existingItem.modelUrl = modelUrl; updated = true; }
+            if (username && username !== 'Creator' && existingItem.username === 'Creator') { existingItem.username = username; updated = true; }
+            if (royalty && !existingItem.royalty) { existingItem.royalty = parseFloat(royalty); updated = true; }
+            // Fix owner to contract address if EventListener set it to seller
+            if (existingItem.owner !== web3.contractAddress.toLowerCase()) {
+                existingItem.owner = web3.contractAddress.toLowerCase();
+                updated = true;
+            }
+            if (updated) {
+                await existingItem.save();
+                console.log(`[Sync Creation] ✅ Enriched existing item #${tokenId} with user-provided data`);
+            } else {
+                console.log(`[Sync Creation] ⚠️ Item already synced (Idempotent) - token ${tokenId}`);
+            }
+            return res.json({ success: true, message: 'Item synced successfully', tokenId });
         }
 
         console.log(`[Sync Creation] Token ${tokenId} not found in DB, creating new item...`);
@@ -237,7 +257,7 @@ router.post('/sync-creation', async (req, res) => {
             tokenURI: tokenURI || '',
             seller: walletAddress.toLowerCase(), // User's wallet address - they will receive payments!
             creator: walletAddress.toLowerCase(), // Original creator - for royalties and filtering
-            owner: walletAddress.toLowerCase(), // Initially owner = seller = creator
+            owner: web3.contractAddress.toLowerCase(), // NFT is held by marketplace contract when listed
             username: username || 'Creator',
             royalty: parseFloat(royalty) || 0,
             createdAt: new Date(),
@@ -331,9 +351,26 @@ router.get('/:id', async (req, res) => {
     try {
         let item = await MarketItem.findOne({ tokenId: paramTokenId });
 
-        // Auto-heal: If item is active locally, check chain to ensure it hasn't been sold
-        // This handles cases where the backend missed the 'MarketItemSold' event
-        // Auto-heal disabled for stability
+        // Auto-heal: verify DB status matches on-chain truth
+        if (item && web3.isReady()) {
+            try {
+                const onChainItem = await web3.contract.getMarketItem(paramTokenId);
+                const chainStatus = onChainItem.sold ? 'sold' : 'active';
+                const chainOwner = onChainItem.owner.toLowerCase();
+
+                if (item.status !== chainStatus || item.owner !== chainOwner) {
+                    console.log(`[Auto-Heal] Token #${paramTokenId}: DB status=${item.status} owner=${item.owner} → chain status=${chainStatus} owner=${chainOwner}`);
+                    item.status = chainStatus;
+                    item.owner = chainOwner;
+                    if (chainStatus === 'sold' && !item.soldAt) {
+                        item.soldAt = new Date();
+                    }
+                    await item.save();
+                }
+            } catch (healErr) {
+                console.warn(`[Auto-Heal] Failed for token ${paramTokenId}:`, healErr.message);
+            }
+        }
 
         if (item) {
             res.json({ success: true, data: item });
@@ -521,6 +558,132 @@ router.post('/sync-purchase', async (req, res) => {
 
 
 
+// Sync Relist - called after user relists from frontend
+router.post('/sync-relist', async (req, res) => {
+    try {
+        const { tokenId, transactionHash, sellerAddress, price } = req.body;
+
+        console.log('[Sync Relist] Received:', { tokenId, transactionHash, sellerAddress, price });
+
+        if (!tokenId || !transactionHash || !sellerAddress) {
+            return res.status(400).json({ success: false, message: 'Missing required fields: tokenId, transactionHash, sellerAddress' });
+        }
+
+        console.log(`[Sync Relist] Syncing relist for Token ID ${tokenId} (Tx: ${transactionHash})`);
+
+        if (!web3.isReady()) {
+            return res.status(503).json({ success: false, message: 'Web3 provider not ready' });
+        }
+
+        // 1. Verify Transaction on Chain
+        let receipt;
+        try {
+            receipt = await web3.provider.getTransactionReceipt(transactionHash);
+        } catch (e) {
+            return res.status(400).json({ success: false, message: 'Invalid transaction hash format' });
+        }
+
+        if (!receipt) {
+            return res.status(404).json({ success: false, message: 'Transaction not found on chain' });
+        }
+
+        if (receipt.status === 0) {
+            return res.status(400).json({ success: false, message: 'Transaction failed on chain' });
+        }
+
+        // 2. Verify MarketItemRelisted event
+        let relistEvent = null;
+        let truePrice = null;
+
+        for (const log of receipt.logs) {
+            try {
+                if (log.address.toLowerCase() !== web3.contractAddress.toLowerCase()) continue;
+                const parsed = web3.contract.interface.parseLog(log);
+                if (parsed && parsed.name === 'MarketItemRelisted') {
+                    if (parsed.args.tokenId.toString() === tokenId.toString()) {
+                        relistEvent = parsed;
+                        truePrice = ethers.formatEther(parsed.args.price);
+                        break;
+                    }
+                }
+            } catch (e) {
+                continue;
+            }
+        }
+
+        if (!relistEvent || !truePrice) {
+            return res.status(400).json({ success: false, message: 'Transaction does not contain valid MarketItemRelisted event for this token.' });
+        }
+
+        // 3. Update Database (Idempotent)
+        const item = await MarketItem.findOne({ tokenId: parseInt(tokenId) });
+
+        if (!item) {
+            return res.status(404).json({ success: false, message: 'Item not found in DB' });
+        }
+
+        if (item.status === 'active') {
+            return res.json({ success: true, message: 'Relist already synced (Idempotent)' });
+        }
+
+        item.status = 'active';
+        item.price = parseFloat(truePrice);
+        item.seller = sellerAddress.toLowerCase();
+        // In the contract, the owner is the marketplace itself now (in escrow)
+        item.owner = web3.contractAddress.toLowerCase();
+
+        // Try to resolve username from DB for the new seller
+        try {
+            const user = await User.findOne({ walletAddress: sellerAddress.toLowerCase() });
+            if (user) {
+                item.username = user.displayName || user.username || 'Creator';
+            }
+        } catch (e) {
+            console.warn(`[Sync Relist] Failed to resolve username for seller ${sellerAddress}: ${e.message}`);
+        }
+
+        await item.save();
+
+        // 4. Record Transaction
+        try {
+            const txExists = await Transaction.findOne({ transactionHash });
+            if (!txExists) {
+                const newTx = new Transaction({
+                    transactionHash,
+                    blockNumber: receipt.blockNumber,
+                    tokenId: parseInt(tokenId),
+                    contractAddress: web3.contractAddress,
+                    type: 'relist',
+                    price: parseFloat(truePrice),
+                    currency: 'ETH',
+                    buyer: null,
+                    seller: sellerAddress.toLowerCase(),
+                    gasUsed: receipt.gasUsed.toString(),
+                    status: 'confirmed',
+                    metadata: {
+                        tokenURI: item.tokenURI,
+                        title: item.title,
+                        category: item.category,
+                        imageUrl: item.imageUrl
+                    },
+                    confirmedAt: new Date()
+                });
+                await newTx.save();
+            }
+        } catch (txError) {
+            console.warn('[Sync Relist] Failed to record transaction:', txError.message);
+        }
+
+        console.log(`[Sync Relist] Successfully synced relist for Token ID ${tokenId}`);
+
+        res.json({ success: true, message: 'Relist synced successfully with on-chain verification', tokenId });
+
+    } catch (error) {
+        console.error('[Sync Relist] ERROR:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Self-healing: Check status on-chain and update DB if needed
 router.get('/sync-status/:id', async (req, res) => {
     try {
@@ -542,9 +705,20 @@ router.get('/sync-status/:id', async (req, res) => {
 
         let updated = false;
 
-        // Detect Mismatch: on-chain SOLD vs db ACTIVE
-        // Contract 'sold' is a boolean
-        // Auto-heal disabled for stability
+        // Auto-heal: fix DB when it disagrees with on-chain truth
+        const chainStatus = item.sold ? 'sold' : 'active';
+        const chainOwner = item.owner.toLowerCase();
+
+        if (dbItem.status !== chainStatus || dbItem.owner !== chainOwner) {
+            console.log(`[Sync-Status] Auto-healing token #${tokenId}: DB status=${dbItem.status} owner=${dbItem.owner} → chain status=${chainStatus} owner=${chainOwner}`);
+            dbItem.status = chainStatus;
+            dbItem.owner = chainOwner;
+            if (chainStatus === 'sold' && !dbItem.soldAt) {
+                dbItem.soldAt = new Date();
+            }
+            await dbItem.save();
+            updated = true;
+        }
 
         res.json({
             success: true,
@@ -553,7 +727,7 @@ router.get('/sync-status/:id', async (req, res) => {
             owner: dbItem.owner,
             onChain: {
                 sold: item.sold,
-                owner: item.owner.toLowerCase()
+                owner: chainOwner
             }
         });
 

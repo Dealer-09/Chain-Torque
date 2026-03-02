@@ -393,7 +393,7 @@ const Dashboard = () => {
                     </div>
                   )}
                 </div>
-                <Button variant='outline' className='w-full mt-4'>
+                <Button variant='outline' className='w-full mt-4' onClick={() => dashboardData.userNFTs.length > 0 ? navigate('/edit') : navigate('/upload')}>
                   {dashboardData.userNFTs.length > 0
                     ? 'View All Models'
                     : 'Upload First Model'}
@@ -441,7 +441,7 @@ const Dashboard = () => {
                     </div>
                   )}
                 </div>
-                <Button variant='outline' className='w-full mt-4'>
+                <Button variant='outline' className='w-full mt-4' onClick={() => navigate('/edit')}>
                   View All Purchases
                 </Button>
               </CardContent>

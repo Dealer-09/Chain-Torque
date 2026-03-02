@@ -107,13 +107,21 @@ app.get('/api/proxy-model', async (req, res) => {
 });
 
 // Web3 status endpoint
-app.get('/api/web3/status', (req, res) => {
+app.get('/api/web3/status', async (req, res) => {
   try {
     if (web3.isReady()) {
+      // Get actual chain ID from provider instead of hardcoding
+      let chainId = 11155111; // Default Sepolia
+      try {
+        const network = await web3.provider.getNetwork();
+        chainId = Number(network.chainId);
+      } catch (e) {
+        console.warn('[Web3 Status] Failed to get chainId from provider:', e.message);
+      }
       res.json({
         success: true,
         connected: true,
-        chainId: 31337,
+        chainId,
         contractAddress: web3.contractAddress,
         contractDeployed: true,
         signerAddress: web3.signer?.address || null,

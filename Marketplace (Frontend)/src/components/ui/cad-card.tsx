@@ -58,12 +58,19 @@ export function CadCard({
       }
       return;
     }
-    console.log(`Added ${title} to cart`);
+    // Navigate to product detail for purchase
+    let targetId: string | number = '';
+    if (id && typeof id === 'object' && 'tokenId' in id && id.tokenId != null) {
+      targetId = id.tokenId;
+    } else if (id != null && (typeof id === 'string' || typeof id === 'number')) {
+      targetId = id;
+    }
+    navigate(`/product/${targetId}`);
   };
 
   const handleToggleWishlist = (e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log(`Toggled wishlist for ${title}`);
+    // Wishlist feature not yet implemented
   };
 
   return (

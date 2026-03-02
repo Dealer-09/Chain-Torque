@@ -246,7 +246,19 @@ const Edit = () => {
         description: "Please confirm the transaction in your wallet. A small listing fee applies."
       });
 
-      await web3Service.relistToken(selectedRelistItem.tokenId, priceNum);
+      const result = await web3Service.relistToken(selectedRelistItem.tokenId, priceNum);
+
+      // Sync the relist to the backend database so it appears immediately on marketplace
+      try {
+        await apiService.syncRelist(
+          selectedRelistItem.tokenId,
+          result.transactionHash,
+          walletAddress!,
+          priceNum.toString()
+        );
+      } catch (syncErr) {
+        console.warn('[Edit] Relist DB sync failed (event listener will catch it):', syncErr);
+      }
 
       toast({
         title: "Success! 🎉",

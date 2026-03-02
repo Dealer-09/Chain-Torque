@@ -71,11 +71,11 @@ router.get('/:address/nfts', async (req, res) => {
         // Logic removed as it was dead code.
 
 
-        // Query DB directly
+        // Query DB directly — exclude items user sold (where seller matches but owner doesn't)
         const userNFTs = await MarketItem.find({
             $or: [
                 { owner: userAddress },
-                { seller: userAddress }
+                { seller: userAddress, status: 'active' }
             ]
         });
         res.json({ success: true, nfts: userNFTs });
