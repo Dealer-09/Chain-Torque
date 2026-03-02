@@ -53,14 +53,26 @@ export function HeroSection() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
+  // Resolve the best available image for a marketplace item
+  const resolveItemImage = (item: any, fallbackIndex: number): string => {
+    // 1. Prefer imageUrl if valid
+    if (item.imageUrl && item.imageUrl !== '/placeholder.jpg') {
+      return resolveAssetUrl(item.imageUrl);
+    }
+    // 2. Fall back to images[] array (same source ProductDetail uses)
+    if (Array.isArray(item.images) && item.images.length > 0 && item.images[0] !== '/placeholder.jpg') {
+      return resolveAssetUrl(item.images[0]);
+    }
+    // 3. Stock fallback
+    return featuredModels[fallbackIndex % featuredModels.length].image;
+  };
+
   // Transform backend items to display format
   const transformItem = (item: any, index: number): DisplayItem => ({
     id: item.tokenId || index,
     tokenId: item.tokenId || index,
     title: item.title || item.name || `Model #${item.tokenId}`,
-    image: item.imageUrl && item.imageUrl !== '/placeholder.jpg'
-      ? resolveAssetUrl(item.imageUrl)
-      : featuredModels[index % featuredModels.length].image,
+    image: resolveItemImage(item, index),
     price: item.price ? `${parseFloat(item.price).toFixed(4)} ETH` : '0.01 ETH',
     seller: item.username || 'Creator',
     rating: item.rating || 4.5,
@@ -372,9 +384,7 @@ export function HeroSection() {
                 id: item.tokenId || index,
                 tokenId: item.tokenId || index,
                 title: item.title || item.name || `Model #${item.tokenId}`,
-                image: item.imageUrl && item.imageUrl !== '/placeholder.jpg'
-                  ? resolveAssetUrl(item.imageUrl)
-                  : featuredModels[index % featuredModels.length].image,
+                image: resolveItemImage(item, index),
                 price: item.price ? `${parseFloat(item.price).toFixed(4)} ETH` : '0.01 ETH',
                 seller: item.username || 'Creator',
                 rating: item.rating || 4.5,

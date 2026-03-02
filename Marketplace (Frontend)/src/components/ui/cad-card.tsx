@@ -90,6 +90,13 @@ export function CadCard({
             src={image}
             alt={title}
             className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-105'
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              if (!target.dataset.fallback) {
+                target.dataset.fallback = '1';
+                target.src = '/placeholder.png';
+              }
+            }}
           />
 
           {/* Wishlist */}
