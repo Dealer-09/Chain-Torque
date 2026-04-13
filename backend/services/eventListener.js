@@ -140,7 +140,7 @@ class EventListener {
             // Fetch IPFS Metadata
             if (tokenURI.startsWith('http') || tokenURI.startsWith('ipfs')) {
                 const url = tokenURI.startsWith('ipfs://')
-                    ? tokenURI.replace('ipfs://', 'https://gateway.lighthouse.storage/ipfs/')
+                    ? tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')
                     : tokenURI;
 
                 try {

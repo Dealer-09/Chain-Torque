@@ -302,10 +302,10 @@ const Dashboard = () => {
                 <div className='flex items-center justify-between'>
                   <div>
                     <p className='text-sm font-medium text-muted-foreground'>
-                      Estimated Earnings
+                      Wallet Balance
                     </p>
                     <p className='text-3xl font-bold mt-1 tracking-tight'>
-                      {dashboardData.stats.totalEarnings}
+                      {dashboardData.stats.balance}
                     </p>
                   </div>
                   <div className='p-3 bg-amber-500/10 rounded-xl group-hover:scale-110 transition-transform duration-300'>

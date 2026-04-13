@@ -1,81 +1,80 @@
-const lighthouse = require('@lighthouse-web3/sdk');
+const { PinataSDK } = require('pinata');
 const path = require('path');
 const fs = require('fs');
+const FormData = require('form-data');
 
-const apiKey = process.env.LIGHTHOUSE_API_KEY;
-console.log('[Lighthouse] Using API Key:', apiKey, '| Type:', typeof apiKey, '| Length:', apiKey ? apiKey.length : 'undefined');
+// Initialize Pinata with JWT (recommended for production)
+const jwt = process.env.PINATA_JWT;
+const apiKey = process.env.PINATA_API_KEY;
+const apiSecret = process.env.PINATA_API_SECRET;
+
+if (!jwt && (!apiKey || !apiSecret)) {
+  console.error('[Pinata] ❌ Missing credentials! Provide PINATA_JWT or both PINATA_API_KEY and PINATA_API_SECRET');
+}
+
+console.log('[Pinata] Initialized with', jwt ? 'JWT' : 'API Key/Secret');
 
 /**
- * Upload a file to Lighthouse IPFS
+ * Upload a file to Pinata IPFS
  * @param {string} filePath - Path to the file to upload
  * @returns {Promise<{cid: string, url: string}>}
  */
 async function uploadFile(filePath) {
-  // Lighthouse SDK expects a file path and API key
-  if (!apiKey || typeof apiKey !== 'string' || apiKey.length < 10) {
-    throw new Error('Lighthouse API key is missing or malformed! Value: ' + JSON.stringify(apiKey));
-  }
-  
   try {
-    console.log('[Lighthouse] Attempting to upload file:', filePath);
-    const response = await lighthouse.upload(filePath, apiKey);
-    console.log('[Lighthouse] Upload successful:', response);
-    // Response contains data.Hash (CID)
+    console.log('[Pinata] Attempting to upload file:', filePath);
+    
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File not found: ${filePath}`);
+    }
+
+    const pinata = new PinataSDK({
+      pinataJwt: jwt,
+      pinataGateway: 'gateway.pinata.cloud',
+    });
+
+    const fileBuffer = fs.readFileSync(filePath);
+    const blob = new Blob([fileBuffer]);
+    const file = new File([blob], path.basename(filePath), { type: 'application/octet-stream' });
+    
+    // Some pinata versions use upload.file, others upload.public.file.
+    const uploadFunc = pinata.upload.public ? pinata.upload.public.file : pinata.upload.file;
+    const response = await uploadFunc.call(pinata.upload, file);
+    
+    const cid = response.cid || response.IpfsHash;
+    console.log('[Pinata] Upload successful:', cid);
+    
     return {
-      cid: response.data.Hash,
-      url: `https://gateway.lighthouse.storage/ipfs/${response.data.Hash}`,
+      cid: cid,
+      url: `https://gateway.pinata.cloud/ipfs/${cid}`,
     };
   } catch (error) {
-    console.error('[Lighthouse] Upload failed:', error);
-    console.error('[Lighthouse] Error details:', {
-      message: error.message,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data
-    });
-    throw new Error(`Lighthouse upload failed: ${error.message}`);
+    console.error('[Pinata] Upload failed:', error.message);
+    throw new Error(`Pinata file upload failed: ${error.message}`);
   }
 }
 
-/**
- * Upload NFT metadata (OpenSea standard) to Lighthouse
- * @param {object} metadata - NFT metadata object
- * @returns {Promise<{cid: string, url: string}>}
- */
 async function uploadMetadata(metadata) {
-  // Write metadata to a temp file
-  const tempPath = path.join(__dirname, 'metadata.json');
-  await fs.promises.writeFile(tempPath, JSON.stringify(metadata));
-  if (!apiKey || typeof apiKey !== 'string' || apiKey.length < 10) {
-    throw new Error('Lighthouse API key is missing or malformed! Value: ' + JSON.stringify(apiKey));
-  }
-  
   try {
-    console.log('[Lighthouse] Attempting to upload metadata:', tempPath);
-    const response = await lighthouse.upload(tempPath, apiKey);
-    console.log('[Lighthouse] Metadata upload successful:', response);
-    // Clean up temp file
-    await fs.promises.unlink(tempPath);
+    console.log('[Pinata] Attempting to upload metadata');
+
+    const pinata = new PinataSDK({
+      pinataJwt: jwt,
+      pinataGateway: 'gateway.pinata.cloud',
+    });
+
+    const uploadFunc = pinata.upload.public ? pinata.upload.public.json : pinata.upload.json;
+    const response = await uploadFunc.call(pinata.upload, metadata);
+    
+    const cid = response.cid || response.IpfsHash;
+    console.log('[Pinata] Metadata upload successful:', cid);
+    
     return {
-      cid: response.data.Hash,
-      url: `https://gateway.lighthouse.storage/ipfs/${response.data.Hash}`,
+      cid: cid,
+      url: `https://gateway.pinata.cloud/ipfs/${cid}`,
     };
   } catch (error) {
-    // Clean up temp file even on error
-    try {
-      await fs.promises.unlink(tempPath);
-    } catch (unlinkError) {
-      console.error('[Lighthouse] Failed to clean up temp file:', unlinkError);
-    }
-    
-    console.error('[Lighthouse] Metadata upload failed:', error);
-    console.error('[Lighthouse] Error details:', {
-      message: error.message,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data
-    });
-    throw new Error(`Lighthouse metadata upload failed: ${error.message}`);
+    console.error('[Pinata] Metadata upload failed:', error.message);
+    throw new Error(`Pinata metadata upload failed: ${error.message}`);
   }
 }
 

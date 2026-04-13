@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { SignIn, SignUp } from '@clerk/clerk-react'
 import './AuthPage.css'
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
@@ -17,7 +17,7 @@ const getMarketplaceUrl = () => {
 const MARKETPLACE_URL = getMarketplaceUrl();
 
 const clerkAppearance = {
-    baseTheme: 'dark',
+    baseTheme: undefined, // baseTheme requires @clerk/themes to be installed, leaving it managed by variables
     variables: {
         colorPrimary: '#6366f1',
         colorBackground: 'transparent',
@@ -40,92 +40,7 @@ interface AuthPageProps {
 }
 
 export default function AuthPage({ type }: AuthPageProps) {
-    const clerkMountRef = useRef<HTMLDivElement>(null)
-    const [clerkLoaded, setClerkLoaded] = useState(false)
-    const [error, setError] = useState<string | null>(null)
-
-    // Load Clerk script dynamically
-    useEffect(() => {
-        if (!CLERK_PUBLISHABLE_KEY) {
-            setError('VITE_CLERK_PUBLISHABLE_KEY is not configured')
-            return
-        }
-
-        // Check if Clerk is already loaded
-        if (window.Clerk) {
-            setClerkLoaded(true)
-            return
-        }
-
-        // Load Clerk script dynamically
-        const script = document.createElement('script')
-        script.src = 'https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js'
-        script.async = true
-        script.crossOrigin = 'anonymous'
-        script.setAttribute('data-clerk-publishable-key', CLERK_PUBLISHABLE_KEY)
-
-        script.onload = () => {
-            setClerkLoaded(true)
-        }
-
-        script.onerror = () => {
-            setError('Failed to load Clerk authentication')
-        }
-
-        document.head.appendChild(script)
-
-        return () => {
-            // Cleanup if needed
-        }
-    }, [])
-
-    // Mount Clerk component when loaded
-    useEffect(() => {
-        if (!clerkLoaded || !window.Clerk) return
-
-        const mountClerk = async () => {
-            try {
-                // Load Clerk with allowed redirect origins
-                await window.Clerk!.load({
-                    allowedRedirectOrigins: [MARKETPLACE_URL, window.location.origin],
-                })
-
-                // Redirect if already logged in
-                if (window.Clerk!.user) {
-                    window.location.href = MARKETPLACE_URL
-                    return
-                }
-
-                // Mount the Clerk component with redirect to marketplace
-                if (clerkMountRef.current) {
-                    const mountOptions = {
-                        appearance: clerkAppearance,
-                        forceRedirectUrl: MARKETPLACE_URL,
-                        fallbackRedirectUrl: MARKETPLACE_URL,
-                    }
-                    if (type === 'sign-in') {
-                        window.Clerk!.mountSignIn(clerkMountRef.current, mountOptions)
-                    } else {
-                        window.Clerk!.mountSignUp(clerkMountRef.current, mountOptions)
-                    }
-                }
-
-                // Interval to check for login and redirect
-                const intervalId = setInterval(() => {
-                    if (window.Clerk?.user) {
-                        window.location.href = MARKETPLACE_URL
-                    }
-                }, 1000)
-
-                return () => clearInterval(intervalId)
-            } catch (err) {
-                console.error('Clerk mount error:', err)
-                setError('Failed to initialize authentication')
-            }
-        }
-
-        mountClerk()
-    }, [clerkLoaded, type])
+    const error = !CLERK_PUBLISHABLE_KEY ? 'VITE_CLERK_PUBLISHABLE_KEY is not configured' : null;
 
     return (
         <div className="auth-page">
@@ -173,15 +88,24 @@ export default function AuthPage({ type }: AuthPageProps) {
                         </div>
                     )}
 
-                    {/* Loading State */}
-                    {!clerkLoaded && !error && (
-                        <div className="flex justify-center py-8">
-                            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                    {/* Clerk Component Mount Point */}
+                    {!error && (
+                        <div className="flex justify-center">
+                            {type === 'sign-in' ? (
+                                <SignIn
+                                    appearance={clerkAppearance}
+                                    forceRedirectUrl={MARKETPLACE_URL}
+                                    fallbackRedirectUrl={MARKETPLACE_URL}
+                                />
+                            ) : (
+                                <SignUp
+                                    appearance={clerkAppearance}
+                                    forceRedirectUrl={MARKETPLACE_URL}
+                                    fallbackRedirectUrl={MARKETPLACE_URL}
+                                />
+                            )}
                         </div>
                     )}
-
-                    {/* Clerk Component Mount Point */}
-                    <div ref={clerkMountRef} className="flex justify-center" />
 
                     {/* Footer Link */}
                     <div className="text-center mt-6">

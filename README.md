@@ -11,7 +11,7 @@ ChainTorque is a comprehensive Web3 platform that solves critical problems in th
 - **🛡️ NFT-Based Licensing**: Blockchain-verified ownership and licensing
 - **🎮 Interactive 3D Previews**: Inspect models before purchasing
 - **🎨 Browser-Based CAD Editor**: Professional 2D sketching + 3D modeling with OpenCascade.js
-- **🌐 Decentralized Storage**: IPFS integration via Lighthouse for censorship resistance
+- **🌐 Decentralized Storage**: IPFS integration via Pinata for censorship resistance
 - **💰 Direct Creator Payments**: Customizable creator royalties + 2.5% platform fee via smart contracts
 
 ## 🏗️ **Project Structure**
@@ -32,8 +32,8 @@ ChainTorque/
 | **Runtime** | Bun (3x faster than Node.js) |
 | **Frontend** | React 18, Vite, Three.js, @react-three/fiber, Tailwind CSS |
 | **CAD Engine** | OpenCascade.js (WASM), Three.js, Custom 2D Canvas |
-| **Android** | Kotlin, Jetpack Compose, Hilt DI, MetaMask SDK |
-| **Backend** | Express, MongoDB, IPFS (Lighthouse SDK) |
+| **Android** | Kotlin, Jetpack Compose, Hilt DI, WalletConnect v2 (Reown AppKit), ARCore |
+| **Backend** | Express, MongoDB, IPFS (Pinata SDK) |
 | **Blockchain** | Solidity (ERC-721), Hardhat, Ethereum Sepolia, ethers.js |
 | **Auth** | Clerk (Web3 wallet + social login) |
 | **Deployment** | Render.com (4 services) |
@@ -112,7 +112,7 @@ bun run dev:cad          # CAD editor (Port 3001)
 - [x] ETH payments: Configurable creator royalties on secondary sales & 2.5% platform fee
 - [x] Relist/resale functionality for secondary market
 - [x] Smart contract deployed on Sepolia testnet
-- [x] IPFS storage via Lighthouse SDK
+- [x] IPFS storage via Pinata SDK
 - [x] Search & category filtering
 - [x] Purchased items with download links
 - [x] Dashboard with user stats
@@ -127,9 +127,11 @@ bun run dev:cad          # CAD editor (Port 3001)
 - [x] Render.com deployment (all 4 services)
 - [x] **Native Android App** (ChainTorque_Native)
   - [x] Jetpack Compose UI with Material 3
-  - [x] Native Wallet Integration (MetaMask SDK)
+  - [x] WalletConnect v2 integration (300+ wallet support: MetaMask, Trust Wallet, Rainbow, etc.)
   - [x] NFT marketplace browsing & purchasing
+  - [x] AR & 3D model viewing (Google Scene Viewer + ARCore integration)
   - [x] User profiles and transaction history
+  - [x] Sepolia testnet enforcement with session validation
 
 ### 🔄 In Progress
 - [ ] AI Assistant "Torquy" for CAD commands
@@ -139,7 +141,7 @@ bun run dev:cad          # CAD editor (Port 3001)
 - [ ] STL/GLB export from CAD editor
 - [ ] User profile pages
 - [ ] Multi-chain support (Polygon)
-- [ ] AR/VR model preview
+- [ ] VR model preview (AR completed on Android)
 
 ## 🏗️ **Architecture**
 
@@ -154,7 +156,7 @@ graph TD
     subgraph Backend
         API[Express API<br/>Port 5001]
         SC[Smart Contract<br/>Sepolia]
-        IPFS[Lighthouse<br/>IPFS Storage]
+        IPFS[Pinata<br/>IPFS Storage]
         DB[(MongoDB)]
     end
     
@@ -183,8 +185,10 @@ CONTRACT_ADDRESS=0x...
 VITE_CLERK_PUBLISHABLE_KEY=pk_...
 CLERK_SECRET_KEY=sk_...
 
-# IPFS (Lighthouse)
-LIGHTHOUSE_API_KEY=...
+# IPFS (Pinata)
+PINATA_JWT=...
+PINATA_API_KEY=...
+PINATA_API_SECRET=...
 ```
 
 ## 🤝 **Contributing**
