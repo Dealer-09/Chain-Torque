@@ -25,7 +25,8 @@ interface NFT {
   _id?: string;
   title?: string; // Made optional as it might be missing
   price: string;
-  sold: boolean;
+  sold?: boolean;
+  status?: string;
   seller: string;
   owner: string;
   views?: number;
@@ -151,7 +152,7 @@ const Dashboard = () => {
       // Calculate user stats
       const totalModels = userNFTs.length;
       const totalSales = userNFTs.reduce(
-        (acc: number, nft: NFT) => acc + (nft.sold && nft.seller?.toLowerCase() === walletAddress?.toLowerCase() ? 1 : 0),
+        (acc: number, nft: NFT) => acc + (nft.status === 'sold' && nft.seller?.toLowerCase() === walletAddress?.toLowerCase() ? 1 : 0),
         0
       );
       // Rough earnings calc (real logic should come from backend sales endpoint)
@@ -375,10 +376,10 @@ const Dashboard = () => {
                             {nft.price ? `${nft.price} ETH` : 'Free'}
                           </p>
                           <Badge
-                            variant={nft.sold ? 'secondary' : 'default'}
+                            variant={nft.status === 'sold' ? 'secondary' : 'default'}
                             className='mt-2'
                           >
-                            {nft.sold ? 'sold' : 'active'}
+                            {nft.status === 'sold' ? 'sold' : 'active'}
                           </Badge>
                         </div>
                       </div>

@@ -193,10 +193,20 @@ const CameraController = forwardRef(({ orbitRef }, ref) => {
 
 // Extruded mesh from OpenCascade geometry
 const ExtrudedMesh = ({ meshData, position = [0, 0, 0], color = '#4ecdc4' }) => {
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(meshData.vertices, 3));
-  geometry.setIndex(new THREE.BufferAttribute(meshData.indices, 1));
-  geometry.computeVertexNormals();
+  const geometry = React.useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(meshData.vertices, 3));
+    geo.setIndex(new THREE.BufferAttribute(meshData.indices, 1));
+    geo.computeVertexNormals();
+    return geo;
+  }, [meshData]);
+
+  // Clean up WebGL buffers when component unmounts or geometry is recalculated
+  React.useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
 
   return (
     <mesh geometry={geometry} position={position} rotation={[-Math.PI / 2, 0, 0]}>
@@ -214,18 +224,25 @@ const ExtrudedMesh = ({ meshData, position = [0, 0, 0], color = '#4ecdc4' }) => 
 const SketchPreview = ({ sketch, height = 0 }) => {
   if (!sketch) return null;
 
-  let points = [];
+  const geometry = React.useMemo(() => {
+    // Use shared geometry utility to get points (includes arc sampling)
+    const points = sampleSketchPoints(sketch).map(p => new THREE.Vector3(p.x * 3, height, -p.y * 3));
+    if (points.length > 2) points.push(points[0]); // Close loop
 
-  // Use shared geometry utility to get points (includes arc sampling)
-  points = sampleSketchPoints(sketch).map(p => new THREE.Vector3(p.x * 3, height, -p.y * 3));
-  if (points.length > 2) points.push(points[0]); // Close loop
+    if (points.length < 2) return null;
+    return new THREE.BufferGeometry().setFromPoints(points);
+  }, [sketch, height]);
 
-  if (points.length < 2) return null;
+  React.useEffect(() => {
+    return () => {
+      if (geometry) geometry.dispose();
+    };
+  }, [geometry]);
 
-  const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+  if (!geometry) return null;
 
   return (
-    <line geometry={lineGeometry}>
+    <line geometry={geometry}>
       <lineBasicMaterial color="#ff9500" linewidth={2} />
     </line>
   );
@@ -262,16 +279,7 @@ const Scene = ({ cameraRef, orbitRef, modelUrl, onModelLoad, onModelCaptured, ex
   const transformRef = useRef();
   const modelRef = useRef();
 
-  // Debug logging
-  useEffect(() => {
-    console.log('Scene props changed:', {
-      editMode,
-      hasEditFeature: !!editFeature,
-      editFeatureName: editFeature?.name,
-      editFeatureHasMeshData: !!editFeature?.meshData,
-      extrudedGeometriesCount: extrudedGeometries?.length
-    });
-  }, [editMode, editFeature, extrudedGeometries]);
+  // No debug logging on every prop change needed
 
   // Disable orbit controls while dragging the transform gizmo
   useEffect(() => {
@@ -468,14 +476,16 @@ const ThreeViewer = forwardRef((props, ref) => {
 
   // Get 3D solids from features (extruded via sidebar)
   // Exclude AI-captured models — they're already rendered by the GLB primitive
-  const featureSolids = features
-    .filter(f => f.type === '3d-solid' && f.meshData && f.source !== 'ai-model')
-    .map(f => ({ 
-      id: f.id, 
-      meshData: f.meshData, 
-      color: f.color || '#4ecdc4',
-      name: f.name
-    }));
+  const featureSolids = React.useMemo(() => {
+    return features
+      .filter(f => f.type === '3d-solid' && f.meshData && f.source !== 'ai-model')
+      .map(f => ({ 
+        id: f.id, 
+        meshData: f.meshData, 
+        color: f.color || '#4ecdc4',
+        name: f.name
+      }));
+  }, [features]);
 
   // Initialize CAD service
   useEffect(() => {

@@ -96,6 +96,14 @@ const App = () => {
       const savedProject = localStorage.getItem('chainTorqueCADProject');
       if (savedProject) {
         const parsedData = JSON.parse(savedProject);
+        const currentModelUrl = model ? decodeURIComponent(model) : null;
+        
+        // If URL explicitly requests a different model than the saved one, skip local storage
+        if (currentModelUrl && currentModelUrl !== parsedData.modelUrl) {
+          console.log('[App] New model URL detected; skipping local storage to start fresh.');
+          return;
+        }
+
         if (parsedData.projectName) setProjectName(parsedData.projectName);
         if (parsedData.features) setFeatures(parsedData.features);
         if (parsedData.modelUrl) setModelUrl(parsedData.modelUrl);

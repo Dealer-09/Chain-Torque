@@ -75,7 +75,7 @@ router.get('/:address/nfts', async (req, res) => {
         const userNFTs = await MarketItem.find({
             $or: [
                 { owner: userAddress },
-                { seller: userAddress, status: 'active' }
+                { seller: userAddress }
             ]
         });
         res.json({ success: true, nfts: userNFTs });

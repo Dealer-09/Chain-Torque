@@ -18,13 +18,11 @@ const MeshOperations = ({ features = [], onOperationComplete }) => {
 
   // Get features with mesh data (3D solids, AI models)
   const meshFeatures = features.filter(f => {
-    const hasMeshData = f.meshData && (f.meshData.vertices || f.meshData.indices);
+    const hasMeshData = !!(f.meshData && (f.meshData.vertices || f.meshData.indices));
     const isValidType = f.type === '3d-solid' || f.source === 'ai-model';
-    console.log(`Feature ${f.name}: hasMeshData=${hasMeshData}, isValidType=${isValidType}`, f);
+    // Removed massive console.log that caused severe UI lag by dumping Float32Arrays on every render
     return hasMeshData && isValidType;
   });
-
-  console.log(`Total features: ${features.length}, Mesh features: ${meshFeatures.length}`);
 
   const handleBooleanOperation = async () => {
     if (!cadReady || !baseFeatureId || !toolFeatureId) return;
