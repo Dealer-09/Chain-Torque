@@ -32,7 +32,6 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
     // Store vertices in a ref so we can update them
     verticesRef.current = new Float32Array(feature.meshData.vertices);
 
-    console.log('MeshEditor initialized with orbitRef:', orbitRef?.current ? 'valid' : 'null');
 
     return () => {
       setSelectedVertexIndex(null);
@@ -46,16 +45,12 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
     const tc = transformRef.current;
     
     if (!tc) {
-      console.log('TransformControls ref not yet available');
       return;
     }
 
-    console.log('TransformControls ready');
-    console.log('- OrbitControls ref:', orbitRef?.current ? 'valid' : 'null');
     
     // Manually disable orbit on drag
     const handleDragChange = (event) => {
-      console.log('Dragging changed:', event.value);
       if (orbitRef?.current) {
         orbitRef.current.enabled = !event.value;
       }
@@ -66,7 +61,6 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
           vertices: verticesRef.current,
           indices: feature.meshData.indices
         });
-        console.log('Notified parent of final geometry update');
       }
     };
     
@@ -94,7 +88,7 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
       return; // No change, skip update
     }
 
-    console.log(`useFrame: Vertex ${index} moved to (${newPos.x.toFixed(2)}, ${newPos.y.toFixed(2)}, ${newPos.z.toFixed(2)})`);
+    // Position has changed - update vertex (no console.log at 60fps)
 
     // Store new position
     lastHelperPosition.current = { x: newPos.x, y: newPos.y, z: newPos.z };
@@ -130,7 +124,6 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
     raycaster.setFromCamera(pointer, camera);
     const intersects = raycaster.intersectObject(pointsRef.current);
 
-    console.log(`Raycasting: ${intersects.length} intersections found`);
 
     if (intersects.length > 0) {
       const index = intersects[0].index;
@@ -149,22 +142,10 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
   };
 
   if (!feature?.meshData || !verticesRef.current) {
-    console.log('MeshEditor: Cannot render - missing data:', {
-      hasFeature: !!feature,
-      hasMeshData: !!feature?.meshData,
-      hasVerticesRef: !!verticesRef.current,
-      vertexCount: feature?.meshData?.vertices?.length
-    });
     return null;
   }
 
   const { indices } = feature.meshData;
-  
-  console.log('MeshEditor rendering:', {
-    vertexCount: verticesRef.current.length / 3,
-    indexCount: indices?.length,
-    featureName: feature.name
-  });
 
   return (
     <group rotation={[-Math.PI / 2, 0, 0]}>

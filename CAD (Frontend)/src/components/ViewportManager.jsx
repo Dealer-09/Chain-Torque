@@ -27,6 +27,7 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
   const [hoveredEdge, setHoveredEdge] = useState(null); // {sketchIdx, edgeIdx, edge} for Cut/Point tools
   const [editingSketchIdx, setEditingSketchIdx] = useState(null); // Index of sketch being edited (null = new sketch)
   const [editingSketchBackup, setEditingSketchBackup] = useState(null); // Backup of original sketch for cancel
+  const rafIdRef = useRef(null); // requestAnimationFrame ID for mousemove throttle
 
   // Arc tool state
   const [arcStart, setArcStart] = useState(null); // First point of arc
@@ -341,15 +342,13 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
           drawPoint(ctx, line[0], 'hsl(142 76% 36%)', 4);
           drawPoint(ctx, line[1], 'hsl(142 76% 36%)', 4);
         });
-        // Always draw all vertices (even for cut edges)
-        const allPoints = new Set();
+        // Fast deduplication using numeric keys instead of JSON.stringify
+        const seen = new Set();
         sketch.originalLines.forEach(line => {
-          allPoints.add(JSON.stringify(line[0]));
-          allPoints.add(JSON.stringify(line[1]));
-        });
-        allPoints.forEach(pStr => {
-          const p = JSON.parse(pStr);
-          drawPoint(ctx, p, 'hsl(142 76% 36%)', 4);
+          const k0 = `${Math.round(line[0].x)},${Math.round(line[0].y)}`;
+          const k1 = `${Math.round(line[1].x)},${Math.round(line[1].y)}`;
+          if (!seen.has(k0)) { seen.add(k0); drawPoint(ctx, line[0], 'hsl(142 76% 36%)', 4); }
+          if (!seen.has(k1)) { seen.add(k1); drawPoint(ctx, line[1], 'hsl(142 76% 36%)', 4); }
         });
       } else if (sketch.type === 'polygon' && (sketch.originalPoints || sketch.original2DPoints)) {
         // Draw saved polygon edges individually to support cut edges
@@ -945,85 +944,90 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
   };
 
   const handleMouseMove = (e) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    // Throttle to one update per animation frame to prevent excessive canvas redraws
+    if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+    rafIdRef.current = requestAnimationFrame(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (clientX - rect.left) * scaleX;
+      const y = (clientY - rect.top) * scaleY;
 
-    // Track cursor for preview lines in polygon and line modes
-    if (drawMode === 'polygon' && polygonPoints.length > 0) {
-      const snapped = snapToGridPoint(x, y);
-      setCursorPos(snapped);
-    } else if (drawMode === 'line' && (currentLine.length > 0 || lines.length > 0)) {
-      const snapped = snapToGridPoint(x, y);
-      setCursorPos(snapped);
-    } else if ((drawMode === 'cut' || drawMode === 'point') && sketches.length > 0) {
-      // Track hovered edge for cut/point tools - use raw screen coords
-      const hoverPoint = { x, y };
-      let nearestEdge = null;
-      let nearestSketchIdx = -1;
-      let nearestEdgeIdx = -1;
-      let minDist = Infinity;
+      // Track cursor for preview lines in polygon and line modes
+      if (drawMode === 'polygon' && polygonPoints.length > 0) {
+        const snapped = snapToGridPoint(x, y);
+        setCursorPos(snapped);
+      } else if (drawMode === 'line' && (currentLine.length > 0 || lines.length > 0)) {
+        const snapped = snapToGridPoint(x, y);
+        setCursorPos(snapped);
+      } else if ((drawMode === 'cut' || drawMode === 'point') && sketches.length > 0) {
+        // Track hovered edge for cut/point tools - use raw screen coords
+        const hoverPoint = { x, y };
+        let nearestEdge = null;
+        let nearestSketchIdx = -1;
+        let nearestEdgeIdx = -1;
+        let minDist = Infinity;
 
-      sketches.forEach((sketch, sketchIdx) => {
-        if (sketch.visible === false) return;
+        sketches.forEach((sketch, sketchIdx) => {
+          if (sketch.visible === false) return;
 
-        if (sketch.type === 'lines' && sketch.originalLines) {
-          sketch.originalLines.forEach((line, lineIdx) => {
-            const dist = pointToLineDistance(hoverPoint, line[0], line[1]);
-            if (dist < minDist && dist < gridSize * 2) {
-              minDist = dist;
-              nearestSketchIdx = sketchIdx;
-              nearestEdgeIdx = lineIdx;
-              nearestEdge = line;
-            }
-          });
-        } else if (sketch.type === 'polygon' && sketch.original2DPoints) {
-          const points = sketch.original2DPoints;
-          for (let i = 0; i < points.length; i++) {
-            const p1 = points[i];
-            const p2 = points[(i + 1) % points.length];
-            const dist = pointToLineDistance(hoverPoint, p1, p2);
-            if (dist < minDist && dist < gridSize * 2) {
-              minDist = dist;
-              nearestSketchIdx = sketchIdx;
-              nearestEdgeIdx = i;
-              nearestEdge = [p1, p2];
+          if (sketch.type === 'lines' && sketch.originalLines) {
+            sketch.originalLines.forEach((line, lineIdx) => {
+              const dist = pointToLineDistance(hoverPoint, line[0], line[1]);
+              if (dist < minDist && dist < gridSize * 2) {
+                minDist = dist;
+                nearestSketchIdx = sketchIdx;
+                nearestEdgeIdx = lineIdx;
+                nearestEdge = line;
+              }
+            });
+          } else if (sketch.type === 'polygon' && sketch.original2DPoints) {
+            const points = sketch.original2DPoints;
+            for (let i = 0; i < points.length; i++) {
+              const p1 = points[i];
+              const p2 = points[(i + 1) % points.length];
+              const dist = pointToLineDistance(hoverPoint, p1, p2);
+              if (dist < minDist && dist < gridSize * 2) {
+                minDist = dist;
+                nearestSketchIdx = sketchIdx;
+                nearestEdgeIdx = i;
+                nearestEdge = [p1, p2];
+              }
             }
           }
-        }
-      });
+        });
 
-      if (nearestEdge) {
-        setHoveredEdge({ sketchIdx: nearestSketchIdx, edgeIdx: nearestEdgeIdx, edge: nearestEdge });
+        if (nearestEdge) {
+          setHoveredEdge({ sketchIdx: nearestSketchIdx, edgeIdx: nearestEdgeIdx, edge: nearestEdge });
+        } else {
+          setHoveredEdge(null);
+        }
+        setCursorPos({ x, y });
       } else {
+        setCursorPos(null);
         setHoveredEdge(null);
       }
-      // In cut/point mode, just track the raw cursor position
-      setCursorPos({ x, y });
-    } else {
-      setCursorPos(null);
-      setHoveredEdge(null);
-    }
 
-    if (drawMode === 'circle' && circleCenter) {
-      const dx = x - circleCenter.x;
-      const dy = y - circleCenter.y;
-      const radius = Math.sqrt(dx * dx + dy * dy);
-      setCircleRadius(radius);
-    }
+      if (drawMode === 'circle' && circleCenter) {
+        const dx = x - circleCenter.x;
+        const dy = y - circleCenter.y;
+        const radius = Math.sqrt(dx * dx + dy * dy);
+        setCircleRadius(radius);
+      }
 
-    // Pan with middle mouse or space+drag
-    if (isPanning) {
-      const dx = e.clientX - lastPanPos.x;
-      const dy = e.clientY - lastPanPos.y;
-      setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
-      setLastPanPos({ x: e.clientX, y: e.clientY });
-    }
+      // Pan with middle mouse or space+drag
+      if (isPanning) {
+        const dx = clientX - lastPanPos.x;
+        const dy = clientY - lastPanPos.y;
+        setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+        setLastPanPos({ x: clientX, y: clientY });
+      }
+    });
   };
 
   const handleWheel = (e) => {
