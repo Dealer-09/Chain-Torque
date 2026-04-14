@@ -22,6 +22,16 @@ ChainTorque/
 ├── Marketplace (Frontend)/      # Vite + React + TypeScript NFT marketplace (Port 8080)
 ├── CAD (Frontend)/              # Vite + React CAD editor with OpenCascade.js (Port 3001)
 ├── ChainTorque_Native/          # Android app - Kotlin + Jetpack Compose
+│   └── app/src/main/java/com/example/chaintorquenative/
+│       ├── ChainTorqueApp.kt        # Hilt Application entry point
+│       ├── MainActivity.kt          # NavHost + bottom navigation
+│       ├── di/AppModule.kt          # Dependency injection (Retrofit, OkHttp)
+│       ├── mobile/data/
+│       │   ├── api/                 # Retrofit interface + data models
+│       │   └── repository/          # Single source of truth for API calls
+│       └── mobile/ui/
+│           ├── viewmodels/          # MarketplaceVM, UserProfileVM, WalletVM
+│           └── screens/Screens.kt   # All Compose UI screens
 └── backend/                     # Express API + Hardhat Smart Contracts (Port 5001)
 ```
 
@@ -31,8 +41,8 @@ ChainTorque/
 |-------|--------------|
 | **Runtime** | Bun (3x faster than Node.js) |
 | **Frontend** | React 18, Vite, Three.js, @react-three/fiber, Tailwind CSS |
-| **CAD Engine** | OpenCascade.js (WASM), Three.js, Custom 2D Canvas |
-| **Android** | Kotlin, Jetpack Compose, Hilt DI, WalletConnect v2 (Reown AppKit), ARCore |
+| **CAD Engine** | OpenCascade.js (WASM), Three.js, Vanilla CSS, Custom 2D Canvas |
+| **Android** | Kotlin, Jetpack Compose, Hilt DI, Retrofit 2, WalletConnect v2 (Reown AppKit), ARCore, MVVM + Repository |
 | **Backend** | Express, MongoDB, IPFS (Pinata SDK) |
 | **Blockchain** | Solidity (ERC-721), Hardhat, Ethereum Sepolia, ethers.js |
 | **Auth** | Clerk (Web3 wallet + social login) |
@@ -73,6 +83,17 @@ The browser-based CAD editor (`CAD (Frontend)/`) provides:
 | Backspace | Undo last point |
 | Arrow Keys | Pan canvas |
 | Scroll | Zoom |
+
+## ⚡ **CAD Editor Performance**
+
+The CAD editor is optimized for smooth rendering at 60fps even with complex models:
+
+- **GPU Routing**: `powerPreference: "high-performance"` forces the dedicated GPU (Nvidia/AMD) instead of integrated graphics
+- **DPR Clamping**: Device Pixel Ratio is capped at 1.5x to prevent 4K super-resolution bottlenecks on retina displays
+- **Geometry Memoization**: `THREE.BufferGeometry` objects are created once via `React.useMemo` — not rebuilt on every render frame
+- **WebGL Cleanup**: `geometry.dispose()` is called on unmount to prevent VRAM memory leaks from orphaned GPU buffers
+- **RAF Throttling**: The 2D canvas mousemove handler is wrapped in `requestAnimationFrame` — grid redraws are capped at exactly 60fps
+- **Eliminated Debug Logging**: All `console.log` calls inside render loops and `useFrame` (which execute at 60fps) have been removed
 
 ## 🚀 **Quick Start**
 
@@ -125,32 +146,45 @@ bun run dev:cad          # CAD editor (Port 3001)
   - [x] Feature Tree with visibility/delete
   - [x] Production build optimized
 - [x] Render.com deployment (all 4 services)
-- [x] **Native Android App** (ChainTorque_Native)
+- [x] **Native Android App** (ChainTorque_Native) — Full MVVM Architecture
+  - [x] Proper layered architecture: API → Repository → ViewModel → UI
+  - [x] Retrofit 2 + OkHttp networking with logging interceptor
+  - [x] Hilt dependency injection (AppModule, @HiltAndroidApp)
+  - [x] Jetpack Compose Navigation with sealed class string routes
   - [x] Jetpack Compose UI with Material 3
-  - [x] WalletConnect v2 integration (300+ wallet support: MetaMask, Trust Wallet, Rainbow, etc.)
-  - [x] NFT marketplace browsing & purchasing
-  - [x] AR & 3D model viewing (Google Scene Viewer + ARCore integration)
-  - [x] User profiles and transaction history
-  - [x] Sepolia testnet enforcement with session validation
+  - [x] NFT marketplace browsing with search & category filters
+  - [x] User profiles (purchases + NFT tabs) and wallet balance
+  - [x] Concurrent data loading (purchases + NFTs + balance fetched in parallel)
+  - [x] MetaMask deep-link connection flow
 
 ### 🔄 In Progress
 - [ ] AI Assistant "Torquy" for CAD commands
 - [ ] Save/Load CAD projects
+- [ ] WalletConnect v2 / Reown AppKit SDK integration in Android (currently MetaMask deep-link only)
 
 ### 📋 Planned
+- [ ] Android: 3D model viewer screen (Google Scene Viewer / ARCore) — navigation stub exists
+- [ ] Android: Sepolia testnet enforcement + WalletConnect session chain validation
 - [ ] STL/GLB export from CAD editor
 - [ ] User profile pages
 - [ ] Multi-chain support (Polygon)
-- [ ] VR model preview (AR completed on Android)
 
 ## 🏗️ **Architecture**
 
 ```mermaid
 graph TD
-    subgraph Frontend
+    subgraph Web Frontend
         LP[Landing Page<br/>Vite + React]
         MP[Marketplace<br/>Vite + React + TS]
-        CAD[CAD Editor<br/>Vite + React + Three.js]
+        CAD[CAD Editor<br/>React + Three.js + OpenCascade]
+    end
+
+    subgraph Android
+        AND[ChainTorque Native<br/>Kotlin + Jetpack Compose]
+        VM[ViewModels<br/>MarketplaceVM / ProfileVM / WalletVM]
+        REPO[Repository<br/>ChainTorqueRepository]
+        NET[Retrofit + OkHttp]
+        AND --> VM --> REPO --> NET
     end
     
     subgraph Backend
@@ -163,8 +197,8 @@ graph TD
     LP --> API
     MP --> API
     MP --> SC
-    MP --> IPFS
     CAD --> API
+    NET --> API
     API --> DB
     API --> IPFS
 ```
@@ -180,25 +214,35 @@ MONGODB_URI=mongodb+srv://...
 RPC_URL=https://sepolia.infura.io/v3/...
 PRIVATE_KEY=your_wallet_private_key
 CONTRACT_ADDRESS=0x...
+VITE_CONTRACT_ADDRESS=0x...   # Same value — exposed to frontend
 
-# Clerk Auth
-VITE_CLERK_PUBLISHABLE_KEY=pk_...
-CLERK_SECRET_KEY=sk_...
+# Clerk Auth (Web3 + social login)
+CLERK_PUBLISHABLE_KEY=pk_...
+VITE_CLERK_PUBLISHABLE_KEY=pk_...   # Same value — exposed to Vite frontends
 
 # IPFS (Pinata)
 PINATA_JWT=...
 PINATA_API_KEY=...
 PINATA_API_SECRET=...
+
+# API URL (Vite frontends use this to switch between local and production)
+VITE_API_URL=http://localhost:5001/api   # Dev
+# VITE_API_URL=https://chaintorque-backend.onrender.com/api  # Prod (uncomment)
+
+# AI Features (Torquy assistant)
+GROQ_API_KEY=gsk_...
+HF_TOKEN=hf_...               # HuggingFace token (optional, for image models)
 ```
 
 ## 🤝 **Contributing**
 
 We welcome contributions! Areas of focus:
 
-- **🎨 CAD Features**: Enhance 2D/3D tools, add new primitives
-- **🤖 AI Integration**: Implement Torquy AI assistant
-- **🔧 Blockchain**: Smart contract optimization, multi-chain
-- **📝 Documentation**: API docs, tutorials
+- **🎨 CAD Features**: Enhance 2D/3D tools, add new primitives, STL/GLB export
+- **🤖 AI Integration**: Implement Torquy AI assistant for natural language CAD commands
+- **🔧 Blockchain**: Smart contract optimization, multi-chain support (Polygon)
+- **📱 Android**: Add 3D model viewer screen, deep-link purchase flow, push notifications
+- **📝 Documentation**: API docs, tutorials, contribution guides
 
 ## 📄 **License**
 
