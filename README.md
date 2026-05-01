@@ -21,7 +21,6 @@ ChainTorque/
 ├── Landing Page (Frontend)/     # Vite + React marketing site (Port 5000)
 ├── Marketplace (Frontend)/      # Vite + React + TypeScript NFT marketplace (Port 8080)
 ├── CAD (Frontend)/              # Vite + React CAD editor with OpenCascade.js (Port 3001)
-├── ChainTorque_Native/          # Android app - Kotlin + Jetpack Compose
 └── backend/                     # Express API + Hardhat Smart Contracts (Port 5001)
 ```
 
@@ -125,7 +124,7 @@ bun run dev:cad          # CAD editor (Port 3001)
   - [x] Feature Tree with visibility/delete
   - [x] Production build optimized
 - [x] Render.com deployment (all 4 services)
-- [x] **Native Android App** (ChainTorque_Native)
+- [x] **Native Android App** (Moved to independent repo: [ChainTorque_Native](https://github.com/Dealer-09/ChainTorque_Native))
   - [x] Jetpack Compose UI with Material 3
   - [x] WalletConnect v2 integration (300+ wallet support: MetaMask, Trust Wallet, Rainbow, etc.)
   - [x] NFT marketplace browsing & purchasing
@@ -189,6 +188,10 @@ CLERK_SECRET_KEY=sk_...
 PINATA_JWT=...
 PINATA_API_KEY=...
 PINATA_API_SECRET=...
+
+# AI Services
+GROQ_API_KEY=...
+HF_TOKEN=...
 ```
 
 ## 🤝 **Contributing**
