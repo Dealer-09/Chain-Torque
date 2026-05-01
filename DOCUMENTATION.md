@@ -42,8 +42,8 @@ ChainTorque addresses these challenges through:
 │                                                                   │
 │  ┌─────────────────┐  ┌──────────────────┐  ┌────────────────┐ │
 │  │  Landing Page   │  │   Marketplace    │  │   CAD Editor   │ │
-│  │   (Next.js)     │  │  (React+Vite)    │  │    (React)     │ │
-│  │   Port: 5000    │  │   Port: 5173     │  │  Port: 3000    │ │
+│  │   (Vite)        │  │  (React+Vite)    │  │    (React)     │ │
+│  │   Port: 5000    │  │   Port: 8080     │  │  Port: 3001    │ │
 │  └────────┬────────┘  └────────┬─────────┘  └───────┬────────┘ │
 │           │                    │                     │           │
 └───────────┼────────────────────┼─────────────────────┼───────────┘
@@ -89,7 +89,7 @@ ChainTorque addresses these challenges through:
   - Responsive design with modern UI
 - **Technology**: Next.js for SEO optimization and fast loading
 
-##### Marketplace (React + Vite - Port 5173)
+##### Marketplace (React + Vite - Port 8080)
 - **Purpose**: Browse, search, and purchase 3D models as NFTs
 - **Key Features**:
   - 3D model catalog with filtering and search
@@ -100,7 +100,7 @@ ChainTorque addresses these challenges through:
   - User profiles and transaction history
 - **Technology**: React with Vite for fast development, Three.js for 3D rendering
 
-##### CAD Editor (React - Port 3000)
+##### CAD Editor (React - Port 3001)
 - **Purpose**: Professional browser-based CAD modeling tool
 - **Key Features**:
   - Professional CAD interface (similar to AutoCAD/Fusion360)
@@ -130,14 +130,13 @@ ChainTorque addresses these challenges through:
   - `/api/upload` - File uploads to IPFS
 - **Technology**: Express.js, Mongoose (MongoDB ODM), Bun runtime
 
-##### AI Copilot Service (Python - Planned)
-- **Purpose**: Natural language processing for CAD commands
+##### AI Copilot Service (Node.js - Active)
+- **Purpose**: Natural language processing for CAD commands and 2D-to-3D generation
 - **Capabilities**:
-  - Natural language to CAD operation conversion
-  - Design optimization suggestions
-  - Geometry analysis and recommendations
-  - Model quality assessment
-- **Technology**: Python, Scikit-learn, PyTorch/TensorFlow, HuggingFace Transformers
+  - Natural language to JSON geometric structures (Torquy AI)
+  - 2D image to 3D model generation
+  - Parameterized shape spawning and placement
+- **Technology**: Groq SDK (Llama 3), HuggingFace Gradio SDK, Node.js
 
 ##### WASM Geometry Engine (Rust - Planned)
 - **Purpose**: High-performance client-side geometry operations
@@ -165,7 +164,7 @@ ChainTorque addresses these challenges through:
   - Permanent availability (content-addressed storage)
   - Reduced server costs
   - True decentralization
-- **Integration**: Lighthouse SDK for file uploads
+- **Integration**: Pinata SDK for file uploads
 
 ##### Blockchain (Ethereum/Polygon)
 - **Purpose**: NFT ownership and transaction immutability
@@ -270,7 +269,7 @@ ChainTorque uses a sophisticated three-tier storage architecture:
 
 3. Backend Processing
    └─> File received by Express API (Multer middleware)
-   └─> Model uploaded to IPFS via Lighthouse SDK
+   └─> Model uploaded to IPFS via Pinata SDK
    └─> IPFS returns content hash (CID)
    └─> Metadata stored in MongoDB for quick access
    
@@ -341,7 +340,7 @@ ChainTorque uses a sophisticated three-tier storage architecture:
 └─────────────────────────────────────────────────────────────────┘
 
 1. Launch CAD Editor
-   └─> Opens at http://localhost:3000
+   └─> Opens at http://localhost:3001
    └─> Professional CAD interface loads
    └─> Grid and guidelines visible
 
@@ -366,7 +365,7 @@ ChainTorque uses a sophisticated three-tier storage architecture:
    └─> Real-time visual feedback
    └─> Status bar shows coordinates, angles
 
-4. AI-Assisted Editing (Future Feature)
+4. AI-Assisted Editing (Active Feature)
    └─> Open "Torquy" AI assistant panel
    └─> Type natural language command:
        • "Create a 10mm fillet on all edges"
