@@ -7,8 +7,8 @@ yarn.lock
 pnpm-lock.yaml
 bun.lockb
 
-# Android Native App (separate repo)
-#ChainTorque_Native/
+# Android Native App — separate repo: github.com/Dealer-09/ChainTorque_Native
+ChainTorque_Native/
 
 # Environment variables
 .env
