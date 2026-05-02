@@ -37,43 +37,43 @@ ChainTorque addresses these challenges through:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        USER INTERFACE LAYER                      │
+│                        USER INTERFACE LAYER                     │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌─────────────────┐  ┌──────────────────┐  ┌────────────────┐ │
-│  │  Landing Page   │  │   Marketplace    │  │   CAD Editor   │ │
-│  │   (Vite)        │  │  (React+Vite)    │  │    (React)     │ │
-│  │   Port: 5000    │  │   Port: 8080     │  │  Port: 3001    │ │
-│  └────────┬────────┘  └────────┬─────────┘  └───────┬────────┘ │
+│                                                                 │
+│  ┌─────────────────┐  ┌──────────────────┐   ┌────────────────┐ │
+│  │  Landing Page   │  │   Marketplace    │   │   CAD Editor   │ │
+│  │   (Vite)        │  │  (React+Vite)    │   │    (React)     │ │
+│  │   Port: 5000    │  │   Port: 8080     │   │  Port: 3001    │ │
+│  └────────┬────────┘  └────────┬─────────┘   └───────┬────────┘ │
+│           │                    │                     │          │
+└───────────┼────────────────────┼─────────────────────┼──────────┘
+            │                    │                     │
+            └────────────────────┼─────────────────────┘
+                                 │
+┌────────────────────────────────▼─────────────────────────────────┐
+│                        BACKEND SERVICES                          │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────┐  ┌──────────────────┐   ┌───────────────┐   │
+│  │   Express API   │  │  AI Copilot API  │   │ WASM Geometry │   │
+│  │   Port: 5001    │  │   (Python ML)    │   │    Engine     │   │
+│  └────────┬────────┘  └────────┬─────────┘   └───────┬───────┘   │
 │           │                    │                     │           │
 └───────────┼────────────────────┼─────────────────────┼───────────┘
             │                    │                     │
             └────────────────────┼─────────────────────┘
                                  │
 ┌────────────────────────────────▼─────────────────────────────────┐
-│                        BACKEND SERVICES                           │
-├───────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌─────────────────┐  ┌──────────────────┐  ┌────────────────┐ │
-│  │   Express API   │  │  AI Copilot API  │  │ WASM Geometry  │ │
-│  │   Port: 5001    │  │   (Python ML)    │  │    Engine      │ │
-│  └────────┬────────┘  └────────┬─────────┘  └───────┬────────┘ │
-│           │                    │                     │           │
-└───────────┼────────────────────┼─────────────────────┼───────────┘
-            │                    │                     │
-            └────────────────────┼─────────────────────┘
-                                 │
-┌────────────────────────────────▼─────────────────────────────────┐
-│                        DATA & BLOCKCHAIN LAYER                    │
-├───────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌─────────────────┐  ┌──────────────────┐  ┌────────────────┐ │
-│  │    MongoDB      │  │      IPFS        │  │   Blockchain   │ │
-│  │  (User Data)    │  │  (3D Models)     │  │   (Ethereum/   │ │
-│  │  (Metadata)     │  │  (Images)        │  │    Polygon)    │ │
-│  └─────────────────┘  └──────────────────┘  └────────────────┘ │
-│                                                                   │
-└───────────────────────────────────────────────────────────────────┘
+│                        DATA & BLOCKCHAIN LAYER                   │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌────────────────┐   │
+│  │    MongoDB      │  │      IPFS        │  │   Blockchain   │   │
+│  │  (User Data)    │  │  (3D Models)     │  │   (Ethereum/   │   │
+│  │  (Metadata)     │  │  (Images)        │  │    Polygon)    │   │
+│  └─────────────────┘  └──────────────────┘  └────────────────┘   │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ### Component Breakdown
@@ -191,17 +191,17 @@ ChainTorque uses a sophisticated three-tier storage architecture:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    STORAGE DISTRIBUTION                       │
+│                    STORAGE DISTRIBUTION                      │
 ├──────────────────────────────────────────────────────────────┤
-│                                                               │
+│                                                              │
 │  BLOCKCHAIN                    IPFS              MongoDB     │
-│  ═══════════                 ════════            ═════════    │
+│  ═══════════                 ════════            ═════════   │
 │  • NFT Ownership             • 3D Models        • User Data  │
 │  • Transaction Hash          • STL Files        • Profiles   │
 │  • Token Metadata            • Model Images     • Search     │
 │  • Smart Contract State      • Thumbnails       • Cache      │
 │  • Immutable Ledger          • Large Files      • Analytics  │
-│                                                               │
+│                                                              │
 │  HIGH COST, IMMUTABLE        LOW COST, PERMANENT  FAST QUERY │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -251,7 +251,7 @@ ChainTorque uses a sophisticated three-tier storage architecture:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    MODEL UPLOAD WORKFLOW                         │
+│                    MODEL UPLOAD WORKFLOW                        │
 └─────────────────────────────────────────────────────────────────┘
 
 1. Creator Opens Marketplace
@@ -292,7 +292,7 @@ ChainTorque uses a sophisticated three-tier storage architecture:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    MODEL PURCHASE WORKFLOW                       │
+│                    MODEL PURCHASE WORKFLOW                      │
 └─────────────────────────────────────────────────────────────────┘
 
 1. Engineer Browses Marketplace
@@ -336,7 +336,7 @@ ChainTorque uses a sophisticated three-tier storage architecture:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    CAD EDITING WORKFLOW                          │
+│                    CAD EDITING WORKFLOW                         │
 └─────────────────────────────────────────────────────────────────┘
 
 1. Launch CAD Editor
@@ -1033,17 +1033,16 @@ bun run format
   - Constraint-based modeling
   - Assembly capabilities
 
-### 📋 Phase 3: Scale (Planned - Q1 2024)
+### 📋 Phase 3: Scale (Planned - Q3 2026)
 - Multi-chain support (Polygon, BSC, Arbitrum)
-- Mobile app (React Native)
 - Real-time collaboration features
 - Advanced search and recommendation system
 - Creator verification and badges
 - Enterprise API for bulk operations
 - Performance optimization
 
-### 🚀 Phase 4: Innovation (Planned - Q2 2024)
-- AR/VR integration for model visualization
+### 🚀 Phase 4: Innovation (Planned - Q4 2026)
+- VR integration for model visualization
 - Generative AI for model creation
 - Parametric model marketplace
 - Model versioning and branches
