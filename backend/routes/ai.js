@@ -226,13 +226,37 @@ Output ONLY valid JSON. Zero markdown. Zero explanation. Zero thinking text.`;
 
 
         // Build Gemini-style chat history (role must be 'user' or 'model')
-        const history = chatHistory
-            .slice(-6)
+        const rawHistory = chatHistory
             .filter(msg => msg.role && msg.text)
             .map(msg => ({
-                role: msg.role === 'ai' ? 'model' : 'user',
-                parts: [{ text: msg.text }],
+                role: msg.role === 'ai' || msg.role === 'model' ? 'model' : 'user',
+                text: msg.text
             }));
+
+        const alternatingHistory = [];
+        for (const msg of rawHistory) {
+            if (alternatingHistory.length === 0) {
+                if (msg.role === 'user') {
+                    alternatingHistory.push({ ...msg });
+                }
+            } else {
+                const lastMsg = alternatingHistory[alternatingHistory.length - 1];
+                if (lastMsg.role === msg.role) {
+                    lastMsg.text += '\n' + msg.text;
+                } else {
+                    alternatingHistory.push({ ...msg });
+                }
+            }
+        }
+
+        let history = alternatingHistory.slice(-6).map(msg => ({
+            role: msg.role,
+            parts: [{ text: msg.text }],
+        }));
+
+        while (history.length > 0 && history[0].role === 'model') {
+            history.shift();
+        }
 
         const model = getGeminiModel(userApiKey, systemPrompt);
         const chat = model.startChat({ history });
