@@ -33,7 +33,7 @@ services:
     runtime: node
     plan: free
     buildCommand: npm install --legacy-peer-deps && npm run --workspace=chaintorque-marketplace build
-    startCommand: npx serve "Marketplace (Frontend)/dist" -s -l ${PORT:-10000}
+    startCommand: npx -y serve "Marketplace (Frontend)/dist" -s -l ${PORT:-10000}
     branch: main
     envVars:
       - key: VITE_API_URL
@@ -51,7 +51,7 @@ services:
     runtime: node
     plan: free
     buildCommand: npm install --legacy-peer-deps && npm run --workspace=chaintorque-landing build
-    startCommand: npx serve "Landing Page (Frontend)/dist" -s -l ${PORT:-10000}
+    startCommand: npx -y serve "Landing Page (Frontend)/dist" -s -l ${PORT:-10000}
     branch: main
     envVars:
       - key: VITE_CLERK_PUBLISHABLE_KEY
@@ -65,5 +65,5 @@ services:
     runtime: node
     plan: free
     buildCommand: npm install --legacy-peer-deps && npm run --workspace=chaintorque-cad-frontend build
-    startCommand: npx serve "CAD (Frontend)/build" -s -l ${PORT:-10000}
+    startCommand: npx -y serve "CAD (Frontend)/build" -s -l ${PORT:-10000}
     branch: main

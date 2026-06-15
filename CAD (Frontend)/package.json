@@ -6,11 +6,12 @@
   "description": "ChainTorque CAD Editor Frontend - Browser-based CAD with OpenCascade.js",
   "scripts": {
     "dev": "vite",
-    "start": "vite",
+    "start": "serve build -s -l $PORT",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "serve": "^14.2.3",
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.0",
     "buffer": "^6.0.3",
