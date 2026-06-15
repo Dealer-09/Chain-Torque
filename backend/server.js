@@ -28,22 +28,41 @@ const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors({
-  origin: [
-    // Local development
-    'http://localhost:8080',
-    'http://localhost:8081',
-    'http://localhost:8082',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:5173',
-    'http://localhost:5000',
-    // Production (Render)
-    'https://chaintorque-landing.onrender.com',
-    'https://chaintorque-marketplace.onrender.com',
-    'https://chaintorque-cad.onrender.com',
-    'https://chaintorque-backend.onrender.com',
-    process.env.FRONTEND_URL
-  ].filter(Boolean),
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      'http://localhost:8080',
+      'http://localhost:8081',
+      'http://localhost:8082',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5173',
+      'http://localhost:5000',
+      'https://chaintorque-landing.onrender.com',
+      'https://chaintorque-marketplace.onrender.com',
+      'https://chaintorque-cad.onrender.com',
+      'https://chaintorque-backend.onrender.com',
+    ];
+
+    if (process.env.FRONTEND_URL) {
+      // Split by comma to support multiple custom origins
+      const customOrigins = process.env.FRONTEND_URL.split(',').map(o => o.trim());
+      allowedOrigins.push(...customOrigins);
+    }
+
+    const isAllowed = allowedOrigins.includes(origin) ||
+      origin.endsWith('.onrender.com') ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:');
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS] Rejected origin: ${origin}`);
+      callback(null, false); // Block the origin, but don't crash the server process
+    }
+  },
   credentials: true,
 }));
 // JSON body parser - skip multipart/form-data (file uploads handled by multer)

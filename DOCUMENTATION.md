@@ -633,7 +633,7 @@ const fileURL = `https://gateway.lighthouse.storage/ipfs/${ipfsCID}`;
 - **Local Blockchain**: Hardhat local network for testing
 
 ### Production Environment (Planned)
-- **Frontend Hosting**: Vercel or Netlify
+- **Frontend Hosting**: Render or Netlify
 - **Backend Hosting**: AWS EC2 or Azure
 - **Database**: MongoDB Atlas (cloud)
 - **Blockchain**: Ethereum mainnet or Polygon
