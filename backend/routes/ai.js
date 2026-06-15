@@ -30,8 +30,8 @@ router.get('/test', (req, res) => {
 
 /**
  * @route POST /api/ai/generate-3d
- * @desc Generate a 3D model from a 2D image
- * @access Public (for now)
+ * @desc Generate a 3D model from a 2D image via Hunyuan3D-2
+ * @access Public
  */
 router.post('/generate-3d', upload.single('image'), async (req, res) => {
     let imagePath = null;
@@ -43,10 +43,15 @@ router.post('/generate-3d', upload.single('image'), async (req, res) => {
         imagePath = req.file.path;
         console.log(`[AI] Processing image: ${imagePath}`);
 
+        // BYOK: prefer the user's own HF token; fall back to server env var.
+        // Multer parses multipart fields into req.body alongside the file.
+        const hfToken = (req.body?.userHfToken?.trim()) || process.env.HF_TOKEN || null;
+
         const { Client, handle_file } = await import('@gradio/client');
         console.log('[AI] @gradio/client imported');
 
-        const client = await Client.connect("frogleo/Image-to-3D", { hf_token: process.env.HF_TOKEN, token: process.env.HF_TOKEN });
+        const clientOpts = hfToken ? { hf_token: hfToken, token: hfToken } : {};
+        const client = await Client.connect("frogleo/Image-to-3D", clientOpts);
         console.log('[AI] Connected to Gradio Space');
 
         const result = await client.predict("/gen_shape", [
@@ -68,8 +73,8 @@ router.post('/generate-3d', upload.single('image'), async (req, res) => {
         }
 
         if (result.data && result.data.length >= 3) {
-            const glbPath = result.data[2]; // e.g. "/static/..."
-            const objPath = result.data[3]; // e.g. "/static/..."
+            const glbPath = result.data[2];
+            const objPath = result.data[3];
 
             if (glbPath) {
                 const spaceUrl = "https://frogleo-image-to-3d.hf.space";
@@ -91,11 +96,8 @@ router.post('/generate-3d', upload.single('image'), async (req, res) => {
     } catch (error) {
         console.error('[AI] Error:', error);
 
-        // Cleanup on error if file still exists
         if (imagePath && fs.existsSync(imagePath)) {
-            try {
-                fs.unlinkSync(imagePath);
-            } catch (unlinkErr) {
+            try { fs.unlinkSync(imagePath); } catch (unlinkErr) {
                 console.error('[AI] Cleanup error:', unlinkErr);
             }
         }
@@ -108,112 +110,136 @@ router.post('/generate-3d', upload.single('image'), async (req, res) => {
     }
 });
 
-const { Groq } = require('groq-sdk');
-let _groq = null;
-const getGroq = () => {
-    if (!process.env.GROQ_API_KEY) throw new Error('GROQ_API_KEY env var is not set');
-    if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    return _groq;
-};
+// ── Gemini helper ─────────────────────────────────────────────────────────────
+// Torquy now runs on Gemini 2.5 Flash.
+// BYOK: if the client sends a `userApiKey` in the request body, it is used
+// instead of the server's GEMINI_API_KEY env var. The user's key is never
+// stored server-side — it is used for this request only and then discarded.
+// If neither key is available the request is rejected with a helpful message.
+
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+function getGeminiModel(userApiKey, systemPrompt) {
+    const key = userApiKey || process.env.GEMINI_API_KEY;
+    if (!key || !key.trim()) {
+        throw new Error(
+            'No Gemini API key found. ' +
+            'Go to Settings (⚙ top-right) → API Keys tab → paste your key → click Save. ' +
+            'Get a free key at https://aistudio.google.com/apikey'
+        );
+    }
+    const trimmedKey = key.trim();
+    if (!trimmedKey.startsWith('AIza')) {
+        throw new Error(
+            'Invalid Gemini API key format. ' +
+            'Keys from Google AI Studio always start with "AIza". ' +
+            'The key you provided starts with "' + trimmedKey.slice(0, 6) + '..." — ' +
+            'make sure you copied a Gemini API Key from https://aistudio.google.com/apikey, ' +
+            'not a service account, OAuth token, or key from a different Google product.'
+        );
+    }
+    const genAI = new GoogleGenerativeAI(key.trim());
+    return genAI.getGenerativeModel({
+        model: 'gemini-3.5-flash',
+
+        // systemInstruction MUST be a Content object, NOT a plain string.
+        // Passing a string directly to startChat() causes a 400 Bad Request
+        // because the SDK does not auto-wrap it in this version.
+        systemInstruction: systemPrompt
+            ? { parts: [{ text: systemPrompt }] }
+            : undefined,
+        generationConfig: {
+            temperature: 0.1,
+            responseMimeType: 'application/json',
+        },
+    });
+}
 
 /**
  * @route POST /api/ai/torquy
- * @desc Process CAD commands via Torquy AI and return JSON shapes and 2D sketches
+ * @desc Process CAD commands via Torquy (Gemini 2.5 Flash).
+ *       Accepts an optional `userApiKey` field in the body for BYOK usage.
  */
 router.post('/torquy', async (req, res) => {
     try {
-        const { prompt, chatHistory = [], workspaceParams = {}, generationMode = '3d' } = req.body;
+        const {
+            prompt,
+            chatHistory = [],
+            workspaceParams = {},
+            generationMode = '3d',
+            userApiKey,          // BYOK: user-supplied Gemini API key
+        } = req.body;
+
         if (!prompt) {
             return res.status(400).json({ success: false, message: 'No prompt provided' });
         }
 
-        const systemPrompt = `You are Torquy, an advanced CAD geometry assistant and mechanical engineer. Convert the user's natural language request into a strictly formatted JSON object.
-You possess the ability to spawn full 3D meshes (shapes) OR 2D drawings (sketches). 
-If the user wants to draw a flat profile, sketch, or polygon to extrude later, YOU MUST use the "sketches" array.
-If the user wants a primitive 3D solid or an engineering model, use the "shapes" array.
-CRITICAL RULE 1: Sizing and placement MUST be highly precise and spatially coherent (like actual CAD dimensions).
-CRITICAL RULE 2: You MUST assign each distinct shape a UNIQUE, appropriate, engineering-grade HEX color representing materials (like steel gray #B0C4DE, brass #B5A642, dark chrome #2d2d2d, bright red paint #E32636, etc). NEVER make the entire assembly a single color unless explicitly asked.
-CRITICAL RULE 3: For 3D SOLID operations, keep ALL dimensions small and bounded (a "large" box is 50 units max). For 2D SKETCH mode, you must use substantially larger values (e.g. coordinates spanning 100 to 400) so they comfortably fill an 800x600 canvas coordinate grid.
-CRITICAL RULE 4: For subtraction/cut tools (like cylinder holes), you MUST make their length/height significantly larger than the base shape to cleanly pierce through it (e.g., if the box height is 10, the cylinder height should be 30).
+        const systemPrompt = `You are Torquy, a 3D CAD geometry engine for ChainTorque. Convert any request into a JSON assembly of primitives. NEVER refuse — approximate everything with cubes, spheres, cylinders, cones, planes.
 
-Current Workspace Context:
-The user currently has ${workspaceParams.sketches?.length || 0} sketches drawn on their board.
+════ COORDINATE SYSTEM ════
+• Y-axis = vertical. +Y = UP. Origin (0,0,0) = center of the assembly.
+• Cylinders default to vertical (along Y). To make a horizontal cylinder (arm, pipe, etc.) set rotation.z = 1.5708.
+• Parts must TOUCH. If part A has height H at center y=Y, its top edge is at Y + H/2. The next part center must be at Y + H/2 + nextH/2.
 
-*** GENERATION MODE: ${generationMode.toUpperCase()} ***
-${generationMode === '2d'
-                ? "The user has explicitly selected 2D SKETCH mode. You MUST NOT generate any 3D shapes or boolean_operations. You must ONLY output your geometric data into the 'sketches' array. IMPORTANT: Assume a canvas size of 800x600 for 2D mode, so generate significantly larger objects (e.g. coordinates from -200 to +200) instead of tiny 10-unit shapes, so it is easily visible."
-                : "The user has explicitly selected 3D SOLID mode. You MUST NOT generate any 2D sketches. You must ONLY output your geometric data into the 'shapes' array (and mathematically carve them using the 'boolean_operations' array if necessary). Keep 'sketches' completely empty."
-            }
-
-Your response MUST be ONLY valid JSON matching this exact schema:
+════ FULL ASTRONAUT EXAMPLE (copy this structure for humanoid shapes) ════
 {
-  "reply": "Here is the 2D sketch you requested.",
-  "plan": [
-    "Step 1: Describe the first part you are building",
-    "Step 2: Describe the next part",
-    "Step 3: ...etc"
-  ],
-  "sketches": [
-    {
-      "type": "polygon|circle",
-      "points": [{"x": number, "y": number}], // ONLY FOR POLYGONS
-      "center": {"x": number, "y": number}, // ONLY FOR CIRCLES
-      "radius": number // ONLY FOR CIRCLES
-    }
-  ],
+  "reply": "Here is your astronaut in full EVA suit",
+  "plan": ["Torso → legs → boots", "Head + helmet + visor", "Arms + gloves", "Backpack + tank"],
+  "sketches": [],
   "shapes": [
-    {
-      "id": "unique_string_id_like_engine_block",
-      "type": "cube|sphere|cylinder|cone|plane",
-      "parameters": {
-        "width": number, "height": number, "depth": number, // FOR CUBE
-        "radius": number, "height": number, // FOR CYLINDER/CONE (HEIGHT IS MANDATORY)
-        "radiusTop": number, "radiusBottom": number // OPTIONAL
-      },
-      "position": { "x": number, "y": number, "z": number },
-      "rotation": { "x": number, "y": number, "z": number },
-      "color": "UNIQUE hex string representing a distinct engineering material color (DO NOT default to a single color)"
-    }
+    {"id":"torso","type":"cylinder","parameters":{"radius":2.5,"height":10},"position":{"x":0,"y":0,"z":0},"rotation":{"x":0,"y":0,"z":0},"color":"#F0EDE8"},
+    {"id":"chest_plate","type":"cube","parameters":{"width":3.5,"height":3,"depth":0.6},"position":{"x":0,"y":1.5,"z":2.55},"rotation":{"x":0,"y":0,"z":0},"color":"#8C9BAB"},
+    {"id":"neck","type":"cylinder","parameters":{"radius":1.1,"height":1.5},"position":{"x":0,"y":5.75,"z":0},"rotation":{"x":0,"y":0,"z":0},"color":"#8C9BAB"},
+    {"id":"helmet","type":"sphere","parameters":{"radius":3},"position":{"x":0,"y":8.5,"z":0},"rotation":{"x":0,"y":0,"z":0},"color":"#F0EDE8"},
+    {"id":"visor","type":"sphere","parameters":{"radius":2.55},"position":{"x":0,"y":8.8,"z":2.2},"rotation":{"x":0,"y":0,"z":0},"color":"#7EC8E3"},
+    {"id":"left_shoulder","type":"sphere","parameters":{"radius":1.3},"position":{"x":-2.8,"y":4,"z":0},"rotation":{"x":0,"y":0,"z":0},"color":"#D8D4CF"},
+    {"id":"right_shoulder","type":"sphere","parameters":{"radius":1.3},"position":{"x":2.8,"y":4,"z":0},"rotation":{"x":0,"y":0,"z":0},"color":"#D8D4CF"},
+    {"id":"left_upper_arm","type":"cylinder","parameters":{"radius":0.9,"height":4.5},"position":{"x":-5,"y":3.5,"z":0},"rotation":{"x":0,"y":0,"z":1.5708},"color":"#E8E4DF"},
+    {"id":"right_upper_arm","type":"cylinder","parameters":{"radius":0.9,"height":4.5},"position":{"x":5,"y":3.5,"z":0},"rotation":{"x":0,"y":0,"z":1.5708},"color":"#E8E4DF"},
+    {"id":"left_lower_arm","type":"cylinder","parameters":{"radius":0.8,"height":3.5},"position":{"x":-8.5,"y":3.5,"z":0},"rotation":{"x":0,"y":0,"z":1.5708},"color":"#D0CCC8"},
+    {"id":"right_lower_arm","type":"cylinder","parameters":{"radius":0.8,"height":3.5},"position":{"x":8.5,"y":3.5,"z":0},"rotation":{"x":0,"y":0,"z":1.5708},"color":"#D0CCC8"},
+    {"id":"left_glove","type":"sphere","parameters":{"radius":1.1},"position":{"x":-10.8,"y":3.5,"z":0},"rotation":{"x":0,"y":0,"z":0},"color":"#2C2C2C"},
+    {"id":"right_glove","type":"sphere","parameters":{"radius":1.1},"position":{"x":10.8,"y":3.5,"z":0},"rotation":{"x":0,"y":0,"z":0},"color":"#2C2C2C"},
+    {"id":"left_thigh","type":"cylinder","parameters":{"radius":1.3,"height":6},"position":{"x":-1.4,"y":-8,"z":0},"rotation":{"x":0,"y":0,"z":0},"color":"#E8E4DF"},
+    {"id":"right_thigh","type":"cylinder","parameters":{"radius":1.3,"height":6},"position":{"x":1.4,"y":-8,"z":0},"rotation":{"x":0,"y":0,"z":0},"color":"#E8E4DF"},
+    {"id":"left_shin","type":"cylinder","parameters":{"radius":1.1,"height":5},"position":{"x":-1.4,"y":-13.5,"z":0},"rotation":{"x":0,"y":0,"z":0},"color":"#D0CCC8"},
+    {"id":"right_shin","type":"cylinder","parameters":{"radius":1.1,"height":5},"position":{"x":1.4,"y":-13.5,"z":0},"rotation":{"x":0,"y":0,"z":0},"color":"#D0CCC8"},
+    {"id":"left_boot","type":"cube","parameters":{"width":2.5,"height":1.5,"depth":3.5},"position":{"x":-1.4,"y":-16.75,"z":0.5},"rotation":{"x":0,"y":0,"z":0},"color":"#1a1a1a"},
+    {"id":"right_boot","type":"cube","parameters":{"width":2.5,"height":1.5,"depth":3.5},"position":{"x":1.4,"y":-16.75,"z":0.5},"rotation":{"x":0,"y":0,"z":0},"color":"#1a1a1a"},
+    {"id":"backpack","type":"cube","parameters":{"width":4,"height":6,"depth":2},"position":{"x":0,"y":0.5,"z":-4.2},"rotation":{"x":0,"y":0,"z":0},"color":"#6B7280"},
+    {"id":"oxygen_tank","type":"cylinder","parameters":{"radius":0.9,"height":4.5},"position":{"x":1,"y":0.5,"z":-5.6},"rotation":{"x":0,"y":0,"z":0},"color":"#A8A9AD"}
   ],
-  "boolean_operations": [
-    {
-      "type": "subtract|union|intersect",
-      "baseShapeId": "id_of_the_main_body",
-      "toolShapeId": "id_of_the_shape_to_carve_with"
-    }
-  ]
+  "boolean_operations": []
 }
 
-Only output valid JSON, with absolutely no markdown wrapping, thinking text, or explanations.`;
+FOR NON-HUMANOID OBJECTS apply the same math: parts touch at edges, cylinders are horizontal when they should be (rotation.z = 1.5708), colors are unique per material.
 
-        // Format history for Groq
-        const messages = [
-            { role: 'system', content: systemPrompt }
-        ];
-
-        // Append recent contextual history
-        const recentHistory = chatHistory.slice(-6); // Keep last 6 messages
-        recentHistory.forEach(msg => {
-            if (msg.role && msg.text) {
-                // Ensure role is exactly 'user' or 'assistant'
-                messages.push({
-                    role: msg.role === 'ai' ? 'assistant' : 'user',
-                    content: msg.text
-                });
+════ GENERATION MODE ════
+${generationMode === '2d'
+                ? "2D SKETCH — ONLY output into 'sketches' array. No shapes. Use coordinates 100–400 for 800×600 canvas."
+                : "3D SOLID — ONLY output into 'shapes' array + boolean_operations. No sketches. Every part must be precisely positioned."
             }
-        });
+Current workspace: ${workspaceParams.sketches?.length || 0} existing sketches.
 
-        // Add the current prompt
-        messages.push({ role: 'user', content: prompt });
+Output ONLY valid JSON. Zero markdown. Zero explanation. Zero thinking text.`;
 
-        const completion = await getGroq().chat.completions.create({
-            messages: messages,
-            model: 'llama-3.1-8b-instant',
-            temperature: 0.1,
-            response_format: { type: "json_object" }
-        });
 
-        const aiResponse = completion.choices[0]?.message?.content;
+
+        // Build Gemini-style chat history (role must be 'user' or 'model')
+        const history = chatHistory
+            .slice(-6)
+            .filter(msg => msg.role && msg.text)
+            .map(msg => ({
+                role: msg.role === 'ai' ? 'model' : 'user',
+                parts: [{ text: msg.text }],
+            }));
+
+        const model = getGeminiModel(userApiKey, systemPrompt);
+        const chat = model.startChat({ history });
+        const result = await chat.sendMessage(prompt);
+
+        const aiResponse = result.response.text();
+
         let parsedResult;
         try {
             parsedResult = JSON.parse(aiResponse);
@@ -224,11 +250,11 @@ Only output valid JSON, with absolutely no markdown wrapping, thinking text, or 
 
         res.json({
             success: true,
-            reply: parsedResult.reply || "Done.",
+            reply: parsedResult.reply || 'Done.',
             plan: parsedResult.plan || [],
             shapes: parsedResult.shapes || [],
             boolean_operations: parsedResult.boolean_operations || [],
-            sketches: parsedResult.sketches || []
+            sketches: parsedResult.sketches || [],
         });
 
     } catch (error) {
@@ -236,7 +262,7 @@ Only output valid JSON, with absolutely no markdown wrapping, thinking text, or 
         res.status(500).json({
             success: false,
             message: 'Failed to process AI command',
-            error: error.message
+            error: error.message,
         });
     }
 });

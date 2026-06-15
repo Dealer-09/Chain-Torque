@@ -337,8 +337,8 @@ class Web3Manager {
     if (!this.provider) return null;
     try {
       const network = await this.provider.getNetwork();
-      const balance = await this.signer.getBalance();
       const address = await this.signer.getAddress();
+      const balance = await this.provider.getBalance(address);
 
       return {
         chainId: Number(network.chainId),

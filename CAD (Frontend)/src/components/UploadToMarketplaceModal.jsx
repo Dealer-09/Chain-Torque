@@ -2,8 +2,15 @@
 // Upload CAD model directly to ChainTorque Marketplace from the editor
 import React, { useState, useEffect, useRef } from 'react';
 import { ethers } from 'ethers';
+import { placedMeshData } from '../three/transformMesh';
 
-const CONTRACT_ADDRESS = '0x28095101822b08707C58D8d04aaEa0DF0E8A3ab6';
+import deployment from '../../../backend/contract-address.json';
+
+// Contract address — reads from VITE_CONTRACT_ADDRESS (same env var as Marketplace frontend)
+// Falls back to the deployed address from the shared contract-address.json file
+const CONTRACT_ADDRESS =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_CONTRACT_ADDRESS) ||
+  deployment.ChainTorqueMarketplace;
 const MARKETPLACE_ABI = [
   'function purchaseToken(uint256 tokenId) external payable',
   'function createToken(string memory tokenURI, uint128 price, uint32 category, uint24 royalty) external payable returns (uint256)',
@@ -14,6 +21,7 @@ const MARKETPLACE_ABI = [
   'event MarketItemCreated(uint256 indexed tokenId, address indexed seller, uint128 indexed price, uint32 category, uint256 timestamp)',
 ];
 
+// Unified category map — matches Marketplace Upload page categories exactly
 const CATEGORY_MAP = {
   Mechanical: 10,
   Automotive: 10,
@@ -24,10 +32,15 @@ const CATEGORY_MAP = {
   Collectibles: 2,
   Art: 3,
   Gaming: 5,
+  Utility: 10,
   Other: 10,
 };
 
 const getApiUrl = () => {
+  try {
+    const override = localStorage.getItem('ct_cad_backend');
+    if (override && override.trim()) return override.trim().replace(/\/?$/, '') + '/api';
+  } catch {}
   if (
     window.location.hostname === 'localhost' ||
     window.location.hostname === '127.0.0.1'
@@ -50,7 +63,9 @@ async function buildGLBBlob(features, projectName) {
   const exportScene = new THREE.Scene();
 
   meshFeatures.forEach((feature, index) => {
-    let { vertices, indices, normals } = feature.meshData;
+    // Bake the solid's object transform into vertices so the exported GLB reflects
+    // the placed (moved/rotated/scaled) geometry, matching what the user sees.
+    let { vertices, indices, normals } = placedMeshData(feature);
     if (!(vertices instanceof Float32Array)) vertices = new Float32Array(vertices);
     if (indices && !(indices instanceof Uint32Array))
       indices = new Uint32Array(indices);
@@ -184,9 +199,29 @@ const UploadToMarketplaceModal = ({ features, projectName, onClose }) => {
 
       setStatusMsg('Connecting wallet…');
       await window.ethereum.request({ method: 'eth_requestAccounts' });
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
+      // ethers v6 API
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
       const walletAddress = await signer.getAddress();
+
+      // Resolve real display name from backend (wallet address is the key)
+      let resolvedUsername = 'Creator';
+      try {
+        const profileRes = await fetch(`${getApiUrl()}/user/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ walletAddress }),
+        });
+        const profileData = await profileRes.json();
+        if (profileData.success && profileData.user) {
+          resolvedUsername =
+            profileData.user.displayName ||
+            profileData.user.username ||
+            'Creator';
+        }
+      } catch {
+        // Non-fatal — fall back to 'Creator'
+      }
 
       // ── 2. Build FormData for IPFS upload ──────────────────────────
       setStatusMsg('Uploading files to IPFS…');
@@ -228,7 +263,7 @@ const UploadToMarketplaceModal = ({ features, projectName, onClose }) => {
       setStatusMsg('Waiting for MetaMask signature…');
       const contract = new ethers.Contract(CONTRACT_ADDRESS, MARKETPLACE_ABI, signer);
 
-      const priceWei = ethers.utils.parseEther(form.price);
+      const priceWei = ethers.parseEther(form.price);      // v6: top-level, not utils.*
       const royaltyBps = Math.floor(form.royalty * 100); // % → basis points
       const categoryId = CATEGORY_MAP[form.category] ?? 10;
       const listingPrice = await contract.getListingPrice();
@@ -246,12 +281,12 @@ const UploadToMarketplaceModal = ({ features, projectName, onClose }) => {
 
       // ── 5. Extract tokenId from receipt ────────────────────────────
       let tokenId = null;
-      const iface = new ethers.utils.Interface(MARKETPLACE_ABI);
+      const iface = new ethers.Interface(MARKETPLACE_ABI);  // v6: top-level
       for (const log of receipt.logs) {
         try {
           const parsed = iface.parseLog(log);
           if (parsed?.name === 'MarketItemCreated') {
-            tokenId = parsed.args.tokenId.toNumber();
+            tokenId = Number(parsed.args.tokenId);           // v6: BigInt, not .toNumber()
             break;
           }
         } catch {
@@ -279,21 +314,22 @@ const UploadToMarketplaceModal = ({ features, projectName, onClose }) => {
           images,
           modelUrl,
           tokenURI,
-          username: 'CAD Creator',
+          username: resolvedUsername,
           royalty: form.royalty,
         }),
       });
       const syncData = await syncRes.json();
 
-      if (!syncData.success) {
-        setStatusType('success');
-        setStatusMsg(
-          `🎉 NFT minted on-chain (Token #${tokenId})!\n\nYour listing will appear in the marketplace shortly.\n\nTx: ${tx.hash}`
-        );
-      } else {
+      if (syncData.success) {
         setStatusType('success');
         setStatusMsg(
           `🎉 Successfully listed on marketplace!\n\nToken ID: #${tokenId}\nYou will receive payments directly when it sells.\n\nTx: ${tx.hash}`
+        );
+      } else {
+        // Blockchain succeeded but DB sync failed — item exists on-chain
+        setStatusType('success');
+        setStatusMsg(
+          `🎉 NFT minted on-chain (Token #${tokenId})!\n\nDB sync had an issue — your listing will appear in the marketplace shortly.\n\nTx: ${tx.hash}`
         );
       }
     } catch (err) {

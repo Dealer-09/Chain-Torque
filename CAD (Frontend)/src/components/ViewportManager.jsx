@@ -1,9 +1,25 @@
 // src/components/ViewportManager.js
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import ThreeViewer from './ThreeViewer.jsx';
+import { useDocumentStore } from '../store/documentStore';
+import { selectSelectedFeature, selectEditFeature } from '../store/selectors';
+import { notify } from '../ui/uiStore';
+import { useSettingsStore } from '../store/settingsStore';
 
 // Integrated 2D Canvas Component
-const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, onPointAdd, activeTool, onToolAction, onToolChange, zoom: zoomProp, onZoomChange }) => {
+const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, onPointAdd, activeTool, onToolAction, onToolChange, zoom: zoomProp, onZoomChange, pan: panProp, onPanChange }) => {
+  const theme = useSettingsStore((s) => s.theme);
+  const getActiveTheme = (themeVal) => {
+    if (themeVal === 'system') {
+      if (typeof window !== 'undefined' && window.matchMedia) {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      return 'dark';
+    }
+    return themeVal;
+  };
+  const activeTheme = getActiveTheme(theme);
+
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [drawMode, setDrawMode] = useState('line'); // 'line', 'polygon', 'circle', 'arc', 'cut', 'point'
@@ -13,13 +29,20 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
   const [circleCenter, setCircleCenter] = useState(null); // Center point for circle
   const [circleRadius, setCircleRadius] = useState(0); // Radius for circle being drawn
   const [circles, setCircles] = useState([]); // Completed circles
-  const [snapToGrid, setSnapToGrid] = useState(true);
-  const [gridSize] = useState(20);
+  const [snapToGrid, setSnapToGrid] = useState(() => {
+    try { return localStorage.getItem('ct_cad_snap') !== 'false'; } catch { return true; }
+  });
+  const [gridSize] = useState(() => {
+    try { return Number(localStorage.getItem('ct_cad_grid_size')) || 20; } catch { return 20; }
+  });
   // Use prop zoom if provided, otherwise local state
   const [localZoom, setLocalZoom] = useState(1);
   const zoom = zoomProp ?? localZoom;
   const setZoom = onZoomChange ?? setLocalZoom;
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  // Use prop pan if provided (persisted via store), otherwise local state
+  const [localPan, setLocalPan] = useState({ x: 0, y: 0 });
+  const pan = panProp ?? localPan;
+  const setPan = onPanChange ?? setLocalPan;
   const [isPanning, setIsPanning] = useState(false);
   const [lastPanPos, setLastPanPos] = useState({ x: 0, y: 0 });
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
@@ -151,8 +174,8 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
     const ctx = canvas.getContext('2d');
 
     const drawGrid = (ctx, width, height) => {
-      // Grid lines - dark theme
-      ctx.strokeStyle = '#404040';
+      // Grid lines
+      ctx.strokeStyle = activeTheme === 'light' ? '#e2e8f0' : '#404040';
       ctx.lineWidth = 0.5;
 
       // Vertical lines
@@ -271,8 +294,8 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
       const startX = centerX - gridExtent / 2;
       const startY = centerY - gridExtent / 2;
 
-      // Grid lines - dark theme
-      ctx.strokeStyle = '#404040';
+      // Grid lines
+      ctx.strokeStyle = activeTheme === 'light' ? '#e2e8f0' : '#404040';
       ctx.lineWidth = 0.5 / zoom;
 
       // Calculate grid bounds
@@ -394,14 +417,15 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
 
     // Draw active sketch
     if (activeSketch) {
-      drawPolygon(ctx, activeSketch.original2DPoints || activeSketch.points, '#0066ff', true);
+      drawPolygon(ctx, activeSketch.original2DPoints || activeSketch.points, activeTheme === 'light' ? '#000000' : '#ffffff', true);
     }
 
     // Draw completed lines in line mode
     lines.forEach(line => {
-      drawLine(ctx, line[0], line[1], 'hsl(217 91% 65%)', 2);
-      drawPoint(ctx, line[0], 'hsl(217 91% 65%)', 5);
-      drawPoint(ctx, line[1], 'hsl(217 91% 65%)', 5);
+      const col = activeTheme === 'light' ? '#000000' : '#ffffff';
+      drawLine(ctx, line[0], line[1], col, 2);
+      drawPoint(ctx, line[0], col, 5);
+      drawPoint(ctx, line[1], col, 5);
     });
 
     // Draw current line being drawn
@@ -445,8 +469,9 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
 
     // Draw completed circles
     circles.forEach(circle => {
-      drawCircle(ctx, circle.center, circle.radius, 'hsl(217 91% 65%)', 2);
-      drawPoint(ctx, circle.center, 'hsl(217 91% 65%)', 4);
+      const col = activeTheme === 'light' ? '#000000' : '#ffffff';
+      drawCircle(ctx, circle.center, circle.radius, col, 2);
+      drawPoint(ctx, circle.center, col, 4);
     });
 
     // Draw circle being drawn
@@ -468,14 +493,15 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
 
     // Draw completed arcs as quadratic bezier curves
     arcs.forEach(arc => {
-      ctx.strokeStyle = 'hsl(217 91% 65%)';
+      const col = activeTheme === 'light' ? '#000000' : '#ffffff';
+      ctx.strokeStyle = col;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(arc.start.x, arc.start.y);
       ctx.quadraticCurveTo(arc.control.x, arc.control.y, arc.end.x, arc.end.y);
       ctx.stroke();
-      drawPoint(ctx, arc.start, 'hsl(217 91% 65%)', 4);
-      drawPoint(ctx, arc.end, 'hsl(217 91% 65%)', 4);
+      drawPoint(ctx, arc.start, col, 4);
+      drawPoint(ctx, arc.end, col, 4);
     });
 
     // Draw arc being created (preview)
@@ -606,7 +632,7 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
       // Line mode: auto-chaining - first click starts, each subsequent click extends from last point
       // Limit to 500 lines to prevent memory issues
       if (lines.length >= 500) {
-        alert('Maximum 500 lines reached. Press Enter to save or Backspace to undo.');
+        notify('Maximum 500 lines reached. Press Enter to save or Backspace to undo.', 'warning');
         return;
       }
 
@@ -659,7 +685,7 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
       // Polygon mode: continuous points
       // Limit to 500 points to prevent memory issues
       if (polygonPoints.length >= 500) {
-        alert('Maximum 500 points reached. Press Enter to save or Backspace to undo.');
+        notify('Maximum 500 points reached. Press Enter to save or Backspace to undo.', 'warning');
         return;
       }
 
@@ -694,7 +720,7 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
         // Calculate radius and complete circle
         // Limit to 100 circles
         if (circles.length >= 100) {
-          alert('Maximum 100 circles reached. Press Enter to save.');
+          notify('Maximum 100 circles reached. Press Enter to save.', 'warning');
           setCircleCenter(null);
           setCircleRadius(0);
           return;
@@ -1065,6 +1091,14 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
     };
   }, []);
 
+  // Cancel any pending mousemove RAF when the 2D canvas unmounts (e.g. switching to 3D),
+  // so the throttled callback doesn't fire against stale/torn-down refs.
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+    };
+  }, []);
+
   const handleMiddleMouseDown = (e) => {
     if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
       e.preventDefault();
@@ -1360,6 +1394,11 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
   };
 
   const handleKeyPress = (e) => {
+    // Ignore drawing shortcuts while the user is typing in a form field
+    // (e.g. the Torquy chat input or a rename prompt).
+    const tag = e.target?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
+
     // Escape - Cancel current drawing or edit mode
     if (e.key === 'Escape') {
       // If editing, restore original sketch and exit edit mode
@@ -1567,7 +1606,7 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
           alignItems: 'stretch',
           justifyContent: 'stretch',
           position: 'relative',
-          backgroundColor: '#1a1a1a'
+          backgroundColor: activeTheme === 'light' ? '#ffffff' : '#1a1a1a'
         }}
       >
         <canvas
@@ -1591,7 +1630,7 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
             height: '100%',
             border: 'none',
             cursor: isPanning ? 'grabbing' : 'crosshair',
-            backgroundColor: '#1a1a1a'
+            backgroundColor: activeTheme === 'light' ? '#ffffff' : '#1a1a1a'
           }}
         />
       </div>
@@ -1599,103 +1638,75 @@ const Canvas2D = ({ onSketchComplete, sketches, onSketchUpdate, activeSketch, on
   );
 };
 
-const ViewportManager = forwardRef(({
-  features,
-  onFeatureAdd,
-  onFeatureDelete,
-  onFeatureUpdate,
-  selectedFeature,
-  onFeatureSelect,
-  activeTool,
-  onToolChange,
-  modelUrl,
-  onModelLoad,
-  onModelCaptured,
-  viewMode: viewModeProp,
-  onViewModeChange,
-  onSketchesChange,
-  editMode,
-  editFeature,
-  onGeometryUpdate
-}, ref) => {
-  // Use prop viewMode if provided, otherwise fallback to local state
-  const [localViewMode, setLocalViewMode] = useState(modelUrl ? '3d' : '2d');
-  const viewMode = viewModeProp ?? localViewMode;
-  const setViewMode = onViewModeChange ?? setLocalViewMode;
+const ViewportManager = forwardRef(({ onModelLoad }, ref) => {
+  // ---- document state from the store (single source of truth) ----
+  const sketches = useDocumentStore((s) => s.sketches);
+  const features = useDocumentStore((s) => s.features);
+  const selectedFeature = useDocumentStore(selectSelectedFeature);
+  const editFeature = useDocumentStore(selectEditFeature);
+  const activeTool = useDocumentStore((s) => s.activeTool);
+  const viewMode = useDocumentStore((s) => s.viewMode);
+  const modelUrl = useDocumentStore((s) => s.modelUrl);
+  const editMode = useDocumentStore((s) => s.editMode);
+  const zoom = useDocumentStore((s) => s.camera2D.zoom);
+  const pan = useDocumentStore((s) => s.camera2D.pan);
 
-  const [sketches, setSketches] = useState([]);
+  // ---- store actions ----
+  const setViewMode = useDocumentStore((s) => s.setViewMode);
+  const setActiveTool = useDocumentStore((s) => s.setActiveTool);
+  const setSelectedFeature = useDocumentStore((s) => s.setSelectedFeature);
+  const addSketch = useDocumentStore((s) => s.addSketch);
+  const updateSketchByIndex = useDocumentStore((s) => s.updateSketchByIndex);
+  const captureAIModel = useDocumentStore((s) => s.captureAIModel);
+  const updateFeatureMesh = useDocumentStore((s) => s.updateFeatureMesh);
+  const updateFeatureTransform = useDocumentStore((s) => s.updateFeatureTransform);
+  const setZoom2D = useDocumentStore((s) => s.setZoom2D);
+  const setPan2D = useDocumentStore((s) => s.setPan2D);
 
-  // Report sketches to parent App component
-  useEffect(() => {
-    if (onSketchesChange) {
-      onSketchesChange(sketches);
-    }
-  }, [sketches, onSketchesChange]);
-
+  // Ephemeral, viewport-local state (not part of the document)
   const [activeSketch, setActiveSketch] = useState(null);
-  const [zoom, setZoom] = useState(1); // Zoom for 2D canvas
   const threeViewerRef = useRef();
 
-  // Expose camera control methods to parent
+  // Expose camera control + local reset to parent (App). Document mutations now
+  // go through the store directly, so the old sketch-data ref methods are gone.
   useImperativeHandle(ref, () => ({
-    setFrontView: () => {
-      threeViewerRef.current?.setFrontView();
-    },
-    setTopView: () => {
-      threeViewerRef.current?.setTopView();
-    },
-    setRightView: () => {
-      threeViewerRef.current?.setRightView();
-    },
-    setIsoView: () => {
-      threeViewerRef.current?.setIsoView();
-    },
-    fitToScreen: () => {
-      threeViewerRef.current?.fitToScreen();
-    },
+    setFrontView: () => threeViewerRef.current?.setFrontView(),
+    setTopView: () => threeViewerRef.current?.setTopView(),
+    setRightView: () => threeViewerRef.current?.setRightView(),
+    setIsoView: () => threeViewerRef.current?.setIsoView(),
+    fitToScreen: () => threeViewerRef.current?.fitToScreen(),
     clearAll: () => {
-      // Clear all sketches and reset state
-      setSketches([]);
+      // store.clearAll() resets document data; reset local drawing + camera here
       setActiveSketch(null);
+      setZoom2D(1);
+      setPan2D({ x: 0, y: 0 });
     },
     zoomIn: () => {
       if (viewMode === '2d') {
-        setZoom(prev => Math.min(5, prev + 0.2));
+        setZoom2D((z) => Math.min(5, z + 0.2));
       } else if (threeViewerRef.current?.zoomIn) {
         threeViewerRef.current.zoomIn();
       }
     },
     zoomOut: () => {
       if (viewMode === '2d') {
-        setZoom(prev => Math.max(0.2, prev - 0.2));
+        setZoom2D((z) => Math.max(0.2, z - 0.2));
       } else if (threeViewerRef.current?.zoomOut) {
         threeViewerRef.current.zoomOut();
       }
     },
-    deleteSketch: (sketchId) => {
-      setSketches(prev => prev.filter(s => s.id !== sketchId));
-    },
-    toggleSketchVisibility: (sketchId) => {
-      setSketches(prev => prev.map(s =>
-        s.id === sketchId ? { ...s, visible: !s.visible } : s
-      ));
-    },
-    getProjectData: () => {
-      return { sketches };
-    },
-    loadProjectData: (data) => {
-      if (data && Array.isArray(data.sketches)) {
-        setSketches(data.sketches);
-      }
-    }
   }));
 
   // Listen for ISO key press to switch to 3D
   useEffect(() => {
     const handleKeyPress = (e) => {
+      // Ignore while typing in a form field (chat input, rename prompt, etc.)
+      const tag = e.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
+
       // Check for 'i' key (for ISO view)
       if (e.key.toLowerCase() === 'i' && !e.ctrlKey && !e.altKey) {
-        toggleViewMode();
+        setViewMode((prev) => (prev === '2d' ? '3d' : '2d'));
       }
       // Escape to go back to 2D
       if (e.key === 'Escape' && viewMode === '3d') {
@@ -1705,11 +1716,7 @@ const ViewportManager = forwardRef(({
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [viewMode]);
-
-  const toggleViewMode = () => {
-    setViewMode(prev => prev === '2d' ? '3d' : '2d');
-  };
+  }, [viewMode, setViewMode]);
 
   const handleSketchComplete = (sketchData) => {
     // Get canvas dimensions for proper normalization
@@ -1832,12 +1839,9 @@ const ViewportManager = forwardRef(({
     }
 
     if (newSketch) {
-      setSketches(prev => [...prev, newSketch]);
-
-      // Add to features list
-      if (onFeatureAdd) {
-        onFeatureAdd(newSketch);
-      }
+      // addSketch mirrors the sketch into both `sketches` and `features`
+      // (same id), replacing the old setSketches + onFeatureAdd dual write.
+      addSketch(newSketch);
     }
   };
 
@@ -1853,41 +1857,31 @@ const ViewportManager = forwardRef(({
           <Canvas2D
             onSketchComplete={handleSketchComplete}
             sketches={sketches}
-            onSketchUpdate={(idx, updatedSketch) => {
-              // Preserve normalized control points if not explicitly updated
-              if (sketches[idx].type === 'polygon' && updatedSketch.arcEdges && sketches[idx].arcEdges) {
-                // Copy checking or restoration logic could go here if needed, 
-                // but for now we assume updatedSketch is constructed carefully by the tool.
-              }
-
-              // Update internal sketches state
-              setSketches(prev => prev.map((s, i) => i === idx ? updatedSketch : s));
-              // Also sync with App.jsx features for Feature Tree and Extrusion
-              if (onFeatureUpdate && updatedSketch.id) {
-                onFeatureUpdate(updatedSketch.id, updatedSketch);
-              }
-            }}
+            onSketchUpdate={(idx, updatedSketch) => updateSketchByIndex(idx, updatedSketch)}
             activeSketch={activeSketch}
             onPointAdd={handlePointAdd}
             activeTool={activeTool}
-            onToolChange={onToolChange}
+            onToolChange={setActiveTool}
             zoom={zoom}
-            onZoomChange={setZoom}
+            onZoomChange={setZoom2D}
+            pan={pan}
+            onPanChange={setPan2D}
           />
         ) : (
           <ThreeViewer
             ref={threeViewerRef}
             features={features}
-            onFeatureSelect={onFeatureSelect}
+            onFeatureSelect={(feature) => setSelectedFeature(feature?.id ?? null)}
+            onTransformPersist={updateFeatureTransform}
             selectedFeature={selectedFeature}
             sketches={sketches}
             modelUrl={modelUrl}
             onModelLoad={onModelLoad}
-            onModelCaptured={onModelCaptured}
+            onModelCaptured={captureAIModel}
             activeTool={activeTool}
             editMode={editMode}
             editFeature={editFeature}
-            onGeometryUpdate={onGeometryUpdate}
+            onGeometryUpdate={updateFeatureMesh}
           />
         )}
       </div>

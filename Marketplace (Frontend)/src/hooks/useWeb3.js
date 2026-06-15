@@ -54,22 +54,21 @@ export const useWeb3Status = () => {
   }, []);
 
   const initializeWeb3 = async () => {
+    // The backend initializes Web3 on startup; there is no client-triggered init
+    // endpoint. This simply re-fetches the current status on demand.
     try {
       setStatus(prev => ({ ...prev, loading: true, error: null }));
 
-      await apiService.initializeWeb3();
-
-      // Refresh status after initialization
       const response = await apiService.getWeb3Status();
       setStatus({
-        initialized: response.data.connected,
+        initialized: response.data?.connected || response.connected,
         network: {
-          name: response.data.name,
-          chainId: response.data.chainId,
+          name: response.data?.name || response.name,
+          chainId: response.data?.chainId || response.chainId,
         },
         contract: {
-          address: response.data.contractAddress,
-          deployed: response.data.contractDeployed,
+          address: response.data?.contractAddress || response.contractAddress,
+          deployed: response.data?.contractDeployed || response.contractDeployed,
         },
         loading: false,
         error: null,
@@ -77,7 +76,7 @@ export const useWeb3Status = () => {
 
       return true;
     } catch (error) {
-      console.error('Failed to initialize Web3:', error);
+      console.error('Failed to refresh Web3 status:', error);
       setStatus(prev => ({
         ...prev,
         loading: false,
@@ -110,13 +109,64 @@ export const useMarketplace = () => {
         apiService.getMarketplaceStats(),
       ]);
 
-      // Log removed
+      const rawItems = itemsResponse.data || [];
 
-      // Fix: Use backend 'data' field for marketplace items
-      const items = itemsResponse.data || [];
+      // Helper: normalise any IPFS URL to a Pinata gateway HTTP URL
+      const resolveIpfsUrl = (url) => {
+        if (!url) return url;
+        // Extract CID from any /ipfs/<CID> path (handles lighthouse, cloudflare, pinata, etc.)
+        const match = url.match(/\/ipfs\/(.+)$/);
+        if (match) return `https://gateway.pinata.cloud/ipfs/${match[1]}`;
+        // Handle raw ipfs:// scheme
+        if (url.startsWith('ipfs://')) return `https://gateway.pinata.cloud/ipfs/${url.slice(7)}`;
+        return url;
+      };
+
+      // Enrich items missing imageUrl or modelUrl by fetching their IPFS tokenURI metadata via Pinata
+      const enrichedItems = await Promise.all(
+        rawItems.map(async (item) => {
+          const hasMissingImage =
+            (!item.imageUrl || item.imageUrl === '/placeholder.jpg') &&
+            (!Array.isArray(item.images) || item.images.length === 0);
+          const hasMissingModel = !item.modelUrl;
+          // Skip if already complete
+          if (!hasMissingImage && !hasMissingModel) return item;
+          // Skip if no usable tokenURI
+          if (!item.tokenURI || item.tokenURI.includes('undefined')) return item;
+
+          try {
+            const metaUrl = resolveIpfsUrl(item.tokenURI);
+            const metaResponse = await fetch(metaUrl, { signal: AbortSignal.timeout(10000) });
+            if (!metaResponse.ok) return item;
+            const meta = await metaResponse.json();
+
+            // Pull image from IPFS metadata and normalise through Pinata
+            const rawImage = meta.image || (Array.isArray(meta.images) && meta.images[0]) || '';
+            const imageUrl = resolveIpfsUrl(rawImage);
+            const rawImages = Array.isArray(meta.images) && meta.images.length > 0
+              ? meta.images
+              : rawImage ? [rawImage] : [];
+            const images = rawImages.map(resolveIpfsUrl);
+            // Pull 3D model URL from animation_url (set by backend upload)
+            const modelUrl = resolveIpfsUrl(meta.animation_url || '') || item.modelUrl;
+            const title = item.title && !item.title.startsWith('CAD Model #') ? item.title : (meta.name || item.title);
+            const description = item.description || meta.description || '';
+
+            return {
+              ...item,
+              ...(hasMissingImage && rawImage ? { imageUrl, images } : {}),
+              ...(hasMissingModel && modelUrl ? { modelUrl } : {}),
+              title,
+              description,
+            };
+          } catch {
+            return item; // silently skip timed-out or failed fetches
+          }
+        })
+      );
 
       setMarketplace({
-        items: items,
+        items: enrichedItems,
         stats: statsResponse.data || statsResponse || null,
         loading: false,
         error: null,

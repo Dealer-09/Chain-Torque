@@ -1,5 +1,6 @@
-// Use environment variable, fallback to hardcoded for safety
-export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || "0x28095101822b08707C58D8d04aaEa0DF0E8A3ab6";
+import deployment from '../../../backend/contract-address.json';
+
+export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || deployment.ChainTorqueMarketplace;
 export const MARKETPLACE_ABI = [
     "function purchaseToken(uint256 tokenId) external payable",
     "function createToken(string memory tokenURI, uint128 price, uint32 category, uint24 royalty) external payable returns (uint256)",

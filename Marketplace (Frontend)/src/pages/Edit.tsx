@@ -21,11 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// Fallback images
-import cadGear from '@/assets/cad-gear.jpg';
-import cadDrone from '@/assets/cad-drone.jpg';
-import cadEngine from '@/assets/cad-engine.jpg';
-import cadRobot from '@/assets/cad-robot.jpg';
+
 
 interface PurchasedItem {
   id: string | number;
@@ -85,7 +81,7 @@ const Edit = () => {
           id: item.tokenId || item._id || index,
           tokenId: item.tokenId || index,
           title: item.title || item.metadata?.title || `Model #${item.tokenId || index}`,
-          image: item.imageUrl || item.image || item.metadata?.image || [cadGear, cadDrone, cadEngine, cadRobot][index % 4],
+          image: item.imageUrl || item.image || item.metadata?.image || '',
           price: item.price ? `${item.price} ETH` : 'Purchased',
           seller: item.seller || item.creator || 'Unknown Creator',
           rating: item.rating || 4.5,

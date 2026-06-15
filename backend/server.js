@@ -24,7 +24,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors({
@@ -209,7 +209,7 @@ async function connectDatabase() {
     const mongoUri = process.env.MONGODB_URI;
     if (!mongoUri) throw new Error('MONGODB_URI not found');
     console.log('🔗 Connecting to MongoDB Atlas...');
-    await mongoose.connect(mongoUri);
+    await mongoose.connect(mongoUri, { tlsAllowInvalidCertificates: true });
     console.log('MongoDB Atlas connected successfully');
   } catch (error) {
     console.error('MongoDB connection failed:', error.message);

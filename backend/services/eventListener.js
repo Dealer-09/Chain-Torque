@@ -119,8 +119,10 @@ class EventListener {
     }
 
     async handleItemCreated(event) {
+        let tokenId;
         try {
-            const { tokenId, seller, price, categoryId } = event.args;
+            let seller, price, category;
+            ({ tokenId, seller, price, category } = event.args);
             console.log(`[EventListener] New Item Detected: #${tokenId}`);
 
             const exists = await MarketItem.findOne({ tokenId: Number(tokenId) });
@@ -193,7 +195,7 @@ class EventListener {
                 title,
                 description,
                 price: Number(ethers.formatEther(price)),
-                category: web3.getCategoryName(Number(categoryId)),
+                category: web3.getCategoryName(Number(category)),
                 imageUrl,
                 images,
                 modelUrl,
@@ -210,6 +212,15 @@ class EventListener {
 
             await newItem.save();
             console.log(`[EventListener] Successfully auto-synced Item #${tokenId}`);
+
+            // Keep creator stats consistent regardless of which sync path won the race.
+            // Only the path that actually inserts the row reaches here (unique tokenId),
+            // so this never double-counts with the manual /sync-creation endpoint.
+            await User.updateOne(
+                { walletAddress: seller.toLowerCase() },
+                { $inc: { 'stats.totalCreated': 1 }, $setOnInsert: { isCreator: true } },
+                { upsert: true }
+            );
 
         } catch (err) {
             // Handle duplicate key error (race condition between eventListener and manual sync)
@@ -240,6 +251,17 @@ class EventListener {
             // Record Transaction
             const txExists = await Transaction.findOne({ transactionHash: event.transactionHash });
             if (!txExists) {
+                // gasUsed is a required field on the Transaction schema. Pull it from the
+                // on-chain receipt; fall back to '0' if the receipt can't be fetched so the
+                // save never fails validation and silently drops the purchase record.
+                let gasUsed = '0';
+                try {
+                    const receipt = await web3.provider.getTransactionReceipt(event.transactionHash);
+                    if (receipt?.gasUsed != null) gasUsed = receipt.gasUsed.toString();
+                } catch (e) {
+                    console.warn(`[EventListener] Could not fetch receipt for ${event.transactionHash}: ${e.message}`);
+                }
+
                 const newTx = new Transaction({
                     transactionHash: event.transactionHash,
                     blockNumber: event.blockNumber,
@@ -250,6 +272,7 @@ class EventListener {
                     currency: 'ETH',
                     buyer: buyer.toLowerCase(),
                     seller: seller.toLowerCase(),
+                    gasUsed,
                     status: 'confirmed',
                     metadata: {
                         tokenURI: item.tokenURI,

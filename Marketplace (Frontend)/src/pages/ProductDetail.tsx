@@ -32,11 +32,17 @@ import {
 
 import { resolveAssetUrl } from '@/lib/urls';
 
-// Import fallback images
-import cadGear from '@/assets/cad-gear.jpg';
-import cadDrone from '@/assets/cad-drone.jpg';
-import cadEngine from '@/assets/cad-engine.jpg';
-import cadRobot from '@/assets/cad-robot.jpg';
+// Neutral SVG placeholder for items with no image (no fake stock photos)
+const NO_IMAGE_PLACEHOLDER = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="%231a1a2e"/><line x1="0" y1="200" x2="400" y2="200" stroke="%23334155" stroke-width="1"/><line x1="200" y1="0" x2="200" y2="400" stroke="%23334155" stroke-width="1"/><circle cx="200" cy="200" r="60" fill="none" stroke="%23475569" stroke-width="1.5" stroke-dasharray="6,4"/><text x="200" y="310" text-anchor="middle" fill="%2364748b" font-family="sans-serif" font-size="13">No preview</text></svg>';
+
+// Normalise any IPFS URL to Pinata gateway (same logic as useWeb3.js)
+const resolveIpfsUrl = (url: string): string => {
+  if (!url) return url;
+  const match = url.match(/\/ipfs\/(.+)$/);
+  if (match) return `https://gateway.pinata.cloud/ipfs/${match[1]}`;
+  if (url.startsWith('ipfs://')) return `https://gateway.pinata.cloud/ipfs/${url.slice(7)}`;
+  return url;
+};
 
 interface ProductModel {
   id: string | number;
@@ -82,6 +88,10 @@ interface ProductModel {
 // Mock data for demonstration
 // Mock data deleted (Security Fix: Prevent deceptive fallback)
 
+// Approximate ETH→USD rate used only for the display price label.
+// TODO: replace with a live price feed (e.g. CoinGecko) — this is a static estimate.
+const ETH_USD_RATE = Number(import.meta.env.VITE_ETH_USD_RATE) || 2000;
+
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -100,16 +110,14 @@ const ProductDetail = () => {
 
   // Transform backend data to frontend ProductModel structure
   const transformBackendData = (backendData: any): ProductModel => {
-    const fallbackImages = [cadGear, cadDrone, cadEngine, cadRobot];
-
-    // Prefer backendData.images array if present and non-empty
+    // Prefer images[] array, then imageUrl, then neutral placeholder (no fake stock photos)
     let actualImages: string[] = [];
     if (Array.isArray(backendData.images) && backendData.images.length > 0) {
-      actualImages = backendData.images.map((url: string) => resolveAssetUrl(url));
+      actualImages = backendData.images.map((url: string) => resolveIpfsUrl(resolveAssetUrl(url)));
     } else if (backendData.imageUrl && backendData.imageUrl !== '/placeholder.jpg') {
-      actualImages = [resolveAssetUrl(backendData.imageUrl)];
+      actualImages = [resolveIpfsUrl(resolveAssetUrl(backendData.imageUrl))];
     } else {
-      actualImages = fallbackImages;
+      actualImages = [NO_IMAGE_PLACEHOLDER];
     }
 
     return {
@@ -118,9 +126,9 @@ const ProductDetail = () => {
       description: backendData.description,
       images: actualImages,
       modelUrl: backendData.modelUrl
-        ? resolveAssetUrl(backendData.modelUrl)
-        : '/models/sample.obj',
-      price: `$${parseFloat(backendData.price) * 2000}`,
+        ? resolveIpfsUrl(resolveAssetUrl(backendData.modelUrl))
+        : '',
+      price: `$${(parseFloat(backendData.price) * ETH_USD_RATE).toLocaleString()}`,
       priceETH: parseFloat(backendData.price),
       seller: {
         name:
@@ -173,8 +181,45 @@ const ProductDetail = () => {
       try {
         const response = await apiService.getMarketplaceItem(id);
         if (response.success) {
-          const transformedModel = transformBackendData(response.data); // Use response.data as per backend
-          setModel(transformedModel);
+          let data = response.data;
+
+          // If DB item has no image but has a tokenURI, fetch IPFS metadata via Pinata
+          const missingImage =
+            (!data.imageUrl || data.imageUrl === '/placeholder.jpg') &&
+            (!Array.isArray(data.images) || data.images.length === 0);
+          const hasUsableTokenURI = data.tokenURI && !data.tokenURI.includes('undefined');
+
+          if (hasUsableTokenURI && (missingImage || !data.modelUrl)) {
+            try {
+              const metaUrl = resolveIpfsUrl(data.tokenURI!);
+              const metaRes = await fetch(metaUrl, { signal: AbortSignal.timeout(10000) });
+              if (metaRes.ok) {
+                const meta = await metaRes.json();
+
+                // Pull image from IPFS metadata
+                const rawImage = meta.image || (Array.isArray(meta.images) && meta.images[0]) || '';
+                // Pull the actual 3D model from animation_url (set by backend upload)
+                const rawModelUrl = meta.animation_url || '';
+
+                data = {
+                  ...data,
+                  ...(rawImage ? {
+                    imageUrl: resolveIpfsUrl(rawImage),
+                    images: Array.isArray(meta.images) && meta.images.length > 0
+                      ? meta.images.map(resolveIpfsUrl)
+                      : [resolveIpfsUrl(rawImage)],
+                  } : {}),
+                  ...(rawModelUrl ? { modelUrl: resolveIpfsUrl(rawModelUrl) } : {}),
+                  title: data.title && !data.title.startsWith('CAD Model #') ? data.title : (meta.name || data.title),
+                  description: data.description || meta.description || '',
+                };
+              }
+            } catch {
+              // silently skip — transformBackendData handles empty fields gracefully
+            }
+          }
+
+          setModel(transformBackendData(data));
         } else {
           throw new Error(response.error || 'Failed to fetch product');
         }

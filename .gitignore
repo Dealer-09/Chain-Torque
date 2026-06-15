@@ -62,6 +62,9 @@ services/blockchain/cache/
 services/blockchain/typechain/
 # Keep backend/artifacts - it contains compiled contract ABI needed for deployment
 !backend/artifacts/
+backend/artifacts/build-info/
+backend/artifacts/**/*.dbg.json
+backend/uploads/
 **/cache/
 **/typechain/
 contracts/artifacts/

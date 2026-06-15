@@ -2,8 +2,14 @@ import React, { useState, useRef } from 'react';
 import { FaCloudUploadAlt, FaMagic, FaTimes, FaCheckCircle, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
 import './ImageTo3D.css';
 
-// Helper to get backend URL matching Marketplace logic
+// Helper to get backend URL matching Marketplace logic.
+// Checks a runtime localStorage override first (ct_cad_backend), then falls
+// back to the build-time VITE_API_URL env, then the hardcoded production URL.
 const getBackendUrl = () => {
+    try {
+        const override = localStorage.getItem('ct_cad_backend');
+        if (override && override.trim()) return override.trim().replace(/\/api$/, '');
+    } catch {}
     if (import.meta.env.VITE_API_URL) {
         return import.meta.env.VITE_API_URL.replace(/\/api$/, '');
     }
@@ -59,6 +65,15 @@ const ImageTo3D = ({ onClose, onModelGenerated }) => {
             }, 1000);
 
             const backendUrl = getBackendUrl();
+
+            // BYOK: pass user's HF token if set in Settings → API Keys
+            try {
+                const userHfToken = localStorage.getItem('ct_cad_hf_key');
+                if (userHfToken && userHfToken.trim()) {
+                    formData.append('userHfToken', userHfToken.trim());
+                }
+            } catch {}
+
             const response = await fetch(`${backendUrl}/api/ai/generate-3d`, {
                 method: 'POST',
                 body: formData,

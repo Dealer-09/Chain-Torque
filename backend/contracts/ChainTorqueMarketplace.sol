@@ -246,6 +246,7 @@ contract ChainTorqueMarketplace is ERC721URIStorage, Ownable, ReentrancyGuard, P
             _safeTransferETH(seller, royaltyAmount); 
         }
 
+        _removeUserToken(seller, tokenId);
         _userTokens[buyer].push(tokenId);
         _tokenToUserIndex[tokenId] = _userTokens[buyer].length - 1;
 
@@ -261,7 +262,9 @@ contract ChainTorqueMarketplace is ERC721URIStorage, Ownable, ReentrancyGuard, P
         address buyer = msg.sender;
 
         for (uint256 i = 0; i < length;) {
-            MarketItem storage item = _marketItems[tokenIds[i]];
+            uint256 tid = tokenIds[i];
+            require(tid > 0 && tid <= _currentTokenId, "Invalid token ID");
+            MarketItem storage item = _marketItems[tid];
             require(!item.sold, "Item already sold");
             totalPrice += item.price;
             unchecked { ++i; }
@@ -275,6 +278,8 @@ contract ChainTorqueMarketplace is ERC721URIStorage, Ownable, ReentrancyGuard, P
 
             address seller = item.seller;
             uint128 price = item.price;
+            uint24 royalty = item.royalty;
+            address creator = item.creator;
 
             item.owner = buyer;
             item.sold = true;
@@ -283,12 +288,23 @@ contract ChainTorqueMarketplace is ERC721URIStorage, Ownable, ReentrancyGuard, P
             _transfer(address(this), buyer, tokenId);
 
             uint256 platformFee = (price * PLATFORM_FEE_BPS) / BASIS_POINTS;
-            uint256 sellerAmount = price - platformFee;
+            uint256 royaltyAmount = (price * royalty) / BASIS_POINTS;
+            uint256 sellerAmount = price - platformFee - royaltyAmount;
 
+            // Pay the seller their share
             if (sellerAmount > 0) {
                 _safeTransferETH(seller, sellerAmount);
             }
 
+            // Pay royalty to the original creator (mirrors purchaseToken)
+            if (royaltyAmount > 0 && creator != address(0)) {
+                _safeTransferETH(creator, royaltyAmount);
+            } else if (royaltyAmount > 0) {
+                _safeTransferETH(seller, royaltyAmount);
+            }
+
+            // Move ownership tracking from the seller to the buyer
+            _removeUserToken(seller, tokenId);
             _userTokens[buyer].push(tokenId);
             _tokenToUserIndex[tokenId] = _userTokens[buyer].length - 1;
 
@@ -365,6 +381,20 @@ contract ChainTorqueMarketplace is ERC721URIStorage, Ownable, ReentrancyGuard, P
     function _safeTransferETH(address to, uint256 amount) internal {
         (bool success, ) = payable(to).call{value: amount}("");
         require(success, "ETH transfer failed");
+    }
+
+    // Remove a token from a user's ownership-tracking array (swap & pop).
+    // Keeps _userTokens accurate across sales and relists so getUserTokens()
+    // does not return stale entries.
+    function _removeUserToken(address user, uint256 tokenId) internal {
+        uint256 index = _tokenToUserIndex[tokenId];
+        uint256 len = _userTokens[user].length;
+        if (len > 0 && index < len && _userTokens[user][index] == tokenId) {
+            uint256 lastToken = _userTokens[user][len - 1];
+            _userTokens[user][index] = lastToken;
+            _tokenToUserIndex[lastToken] = index;
+            _userTokens[user].pop();
+        }
     }
 
     // Helpers

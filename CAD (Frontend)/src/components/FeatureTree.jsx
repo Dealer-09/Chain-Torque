@@ -2,7 +2,7 @@
 import React from 'react';
 import { FaCube, FaCircle, FaSquare, FaEye, FaEyeSlash, FaTrash } from 'react-icons/fa';
 
-const FeatureTree = ({ features, onFeatureToggle, onFeatureDelete, onFeatureSelect }) => {
+const FeatureTree = ({ features, onFeatureToggle, onFeatureDelete, onFeatureSelect, selectedFeatureId }) => {
   const getFeatureIcon = (type) => {
     switch (type) {
       case 'extrude':
@@ -31,7 +31,11 @@ const FeatureTree = ({ features, onFeatureToggle, onFeatureDelete, onFeatureSele
           features.map((feature, index) => (
             <div
               key={feature.id}
-              className={`feature-item ${feature.visible ? 'visible' : 'hidden'}`}
+              className={`feature-item ${feature.visible ? 'visible' : 'hidden'}${feature.id === selectedFeatureId ? ' selected' : ''}`}
+              style={feature.id === selectedFeatureId ? {
+                background: 'rgba(255, 255, 255, 0.12)',
+                borderLeft: '3px solid #ffffff',
+              } : undefined}
               onClick={() => onFeatureSelect && onFeatureSelect(feature)}
             >
               <div className="feature-icon">
@@ -67,7 +71,11 @@ const FeatureTree = ({ features, onFeatureToggle, onFeatureDelete, onFeatureSele
                       }
                     </>
                   )}
-                  {feature.type === '3d-solid' && `Extruded${feature.height ? ` H:${feature.height}` : ''}`}
+                  {feature.type === '3d-solid' && (
+                    feature.source === 'imported-model'
+                      ? (feature.meta?.tokenId ? `Marketplace Item #${feature.meta.tokenId}` : 'Imported File')
+                      : `Extruded${feature.height ? ` H:${feature.height}` : ''}`
+                  )}
                   {!['polygon', 'lines', '3d-solid'].includes(feature.type) && `${feature.type}`}
                 </div>
               </div>

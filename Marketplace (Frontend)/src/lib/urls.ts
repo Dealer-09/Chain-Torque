@@ -86,6 +86,6 @@ export const resolveAssetUrl = (url: string | undefined): string => {
     if (!url) return '/placeholder.png';
     if (url.startsWith('http')) return url;
     // Convert ipfs:// protocol URLs to HTTP gateway (browsers can't load ipfs:// directly)
-    if (url.startsWith('ipfs://')) return url.replace('ipfs://', 'https://gateway.lighthouse.storage/ipfs/');
+    if (url.startsWith('ipfs://')) return url.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
     return `${getBackendUrl()}${url}`;
 };

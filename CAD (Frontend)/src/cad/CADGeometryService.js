@@ -19,21 +19,79 @@ const safeDelete = (...objects) => {
 };
 
 /**
+ * Compute smooth per-vertex normals from a flat vertex list + triangle indices.
+ * OpenCascade triangulation does not hand back usable per-vertex normals here, so
+ * we derive them from face geometry (area-weighted) instead of emitting bogus
+ * (0,0,1) normals that break lighting on every face.
+ */
+const computeVertexNormals = (vertices, indices) => {
+    const normals = new Float32Array(vertices.length);
+
+    for (let t = 0; t < indices.length; t += 3) {
+        const a = indices[t] * 3;
+        const b = indices[t + 1] * 3;
+        const c = indices[t + 2] * 3;
+
+        const ax = vertices[a], ay = vertices[a + 1], az = vertices[a + 2];
+        const bx = vertices[b], by = vertices[b + 1], bz = vertices[b + 2];
+        const cx = vertices[c], cy = vertices[c + 1], cz = vertices[c + 2];
+
+        // Edge vectors
+        const e1x = bx - ax, e1y = by - ay, e1z = bz - az;
+        const e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
+
+        // Cross product (magnitude is proportional to triangle area → area weighting)
+        const nx = e1y * e2z - e1z * e2y;
+        const ny = e1z * e2x - e1x * e2z;
+        const nz = e1x * e2y - e1y * e2x;
+
+        normals[a] += nx; normals[a + 1] += ny; normals[a + 2] += nz;
+        normals[b] += nx; normals[b + 1] += ny; normals[b + 2] += nz;
+        normals[c] += nx; normals[c + 1] += ny; normals[c + 2] += nz;
+    }
+
+    // Normalize accumulated normals
+    for (let i = 0; i < normals.length; i += 3) {
+        const x = normals[i], y = normals[i + 1], z = normals[i + 2];
+        const len = Math.hypot(x, y, z) || 1;
+        normals[i] = x / len;
+        normals[i + 1] = y / len;
+        normals[i + 2] = z / len;
+    }
+
+    return normals;
+};
+
+/**
  * CAD Geometry Service
  * Provides high-level CAD operations using OpenCascade kernel
  */
 class CADGeometryService {
     constructor() {
         this.isInitialized = false;
+        this.initPromise = null;
     }
 
     /**
-     * Initialize the CAD service
+     * Initialize the CAD service. Idempotent and safe to call concurrently:
+     * multiple callers (App, CADOperations, MeshOperations) share one WASM load,
+     * and a failed load is retryable rather than leaving the kernel half-initialized.
      */
     async init() {
         if (this.isInitialized) return;
-        await initOpenCascade();
-        this.isInitialized = true;
+        if (this.initPromise) return this.initPromise;
+
+        this.initPromise = (async () => {
+            try {
+                await initOpenCascade();
+                this.isInitialized = true;
+            } catch (err) {
+                this.initPromise = null; // allow a later retry
+                throw err;
+            }
+        })();
+
+        return this.initPromise;
     }
 
     /**
@@ -89,6 +147,34 @@ class CADGeometryService {
         } catch (err) {
             safeDelete(axis, origin, direction);
             throw new Error(`Failed to create cylinder: ${err.message}`);
+        }
+    }
+
+    /**
+     * Create a cone (or truncated cone / frustum) primitive.
+     * radiusTop = 0 → a classic pointed cone; radiusTop > 0 → a frustum.
+     * Built with its base on the z = position.z plane and apex toward +Z, so a cone
+     * dropped at the origin sits on the ground plane pointing up (and matches how
+     * extruded profiles rise from the sketch plane).
+     */
+    createCone(radiusBottom, radiusTop, height, position = { x: 0, y: 0, z: 0 }) {
+        const oc = getOC();
+        let axis = null, origin = null, direction = null;
+
+        try {
+            origin = new oc.gp_Pnt_3(position.x, position.y, position.z);
+            direction = new oc.gp_Dir_4(0, 0, 1);
+            axis = new oc.gp_Ax2_3(origin, direction);
+
+            // _3 overload mirrors MakeCylinder_3: (gp_Ax2, R1, R2, H).
+            const maker = new oc.BRepPrimAPI_MakeCone_3(axis, radiusBottom, radiusTop, height);
+            const cone = maker.Shape();
+
+            safeDelete(axis, origin, direction);
+            return cone;
+        } catch (err) {
+            safeDelete(axis, origin, direction);
+            throw new Error(`Failed to create cone: ${err.message}`);
         }
     }
 
@@ -238,10 +324,16 @@ class CADGeometryService {
     booleanUnion(shape1, shape2) {
         const oc = getOC();
         try {
+            // BRepAlgoAPI algorithms require TopTools_ListOfShape, not a bare TopoDS_Shape.
+            const argList = new oc.TopTools_ListOfShape_1();
+            argList.Append_1(shape1);
+            const toolList = new oc.TopTools_ListOfShape_1();
+            toolList.Append_1(shape2);
             const fuse = new oc.BRepAlgoAPI_Fuse_1();
-            fuse.SetArguments(shape1);
-            fuse.SetTools(shape2);
+            fuse.SetArguments(argList);
+            fuse.SetTools(toolList);
             fuse.Build();
+            safeDelete(argList, toolList);
             if (!fuse.IsDone()) {
                 throw new Error('Union operation failed to complete');
             }
@@ -259,10 +351,16 @@ class CADGeometryService {
     booleanCut(shape1, shape2) {
         const oc = getOC();
         try {
+            // BRepAlgoAPI algorithms require TopTools_ListOfShape, not a bare TopoDS_Shape.
+            const argList = new oc.TopTools_ListOfShape_1();
+            argList.Append_1(shape1);
+            const toolList = new oc.TopTools_ListOfShape_1();
+            toolList.Append_1(shape2);
             const cut = new oc.BRepAlgoAPI_Cut_1();
-            cut.SetArguments(shape1);
-            cut.SetTools(shape2);
+            cut.SetArguments(argList);
+            cut.SetTools(toolList);
             cut.Build();
+            safeDelete(argList, toolList);
             if (!cut.IsDone()) {
                 throw new Error('Cut operation failed to complete');
             }
@@ -280,10 +378,16 @@ class CADGeometryService {
     booleanIntersect(shape1, shape2) {
         const oc = getOC();
         try {
+            // BRepAlgoAPI algorithms require TopTools_ListOfShape, not a bare TopoDS_Shape.
+            const argList = new oc.TopTools_ListOfShape_1();
+            argList.Append_1(shape1);
+            const toolList = new oc.TopTools_ListOfShape_1();
+            toolList.Append_1(shape2);
             const common = new oc.BRepAlgoAPI_Common_1();
-            common.SetArguments(shape1);
-            common.SetTools(shape2);
+            common.SetArguments(argList);
+            common.SetTools(toolList);
             common.Build();
+            safeDelete(argList, toolList);
             if (!common.IsDone()) {
                 throw new Error('Intersection operation failed to complete');
             }
@@ -296,6 +400,28 @@ class CADGeometryService {
     }
 
     /**
+     * Pick a linear tessellation deflection proportional to the shape's size.
+     * A fixed deflection (the old hardcoded 0.1) over-refines tiny parts and
+     * under-refines large ones; scaling by the bounding-box diagonal keeps
+     * triangle budgets sane across an assembly of mixed-scale parts. Returns a
+     * safe default if the bounding box can't be computed.
+     */
+    meshDeflection(shape) {
+        const oc = getOC();
+        try {
+            const box = new oc.Bnd_Box_1();
+            oc.BRepBndLib.Add(shape, box, false);
+            if (box.IsVoid()) { safeDelete(box); return 0.1; }
+            const diagonal = Math.sqrt(box.SquareExtent());
+            safeDelete(box);
+            // ~0.1% of the model diagonal, clamped to a usable band.
+            return Math.min(Math.max(diagonal * 0.001, 0.01), 1.0);
+        } catch {
+            return 0.1;
+        }
+    }
+
+    /**
      * Convert BREP shape to Three.js compatible mesh data
      */
     shapeToMesh(shape) {
@@ -303,12 +429,13 @@ class CADGeometryService {
         const toDelete = [];
 
         try {
-            // Mesh the shape
-            new oc.BRepMesh_IncrementalMesh_2(shape, 0.1, false, 0.5, true);
+            // Mesh the shape with a size-adaptive deflection (linear), keeping the
+            // angular deflection fixed at ~0.5 rad.
+            const deflection = this.meshDeflection(shape);
+            new oc.BRepMesh_IncrementalMesh_2(shape, deflection, false, 0.5, true);
 
             const vertices = [];
             const indices = [];
-            const normals = [];
 
             // Iterate over faces
             const explorer = new oc.TopExp_Explorer_2(
@@ -327,6 +454,7 @@ class CADGeometryService {
 
                 if (!triangulation.IsNull()) {
                     const transform = location.Transformation();
+                    toDelete.push(transform);
 
                     // Get nodes (vertices)
                     const nbNodes = triangulation.get().NbNodes();
@@ -336,7 +464,6 @@ class CADGeometryService {
                         const node = triangulation.get().Node(i);
                         const transformedNode = node.Transformed(transform);
                         vertices.push(transformedNode.X(), transformedNode.Y(), transformedNode.Z());
-                        normals.push(0, 0, 1);
                     }
 
                     // Get triangles
@@ -364,7 +491,7 @@ class CADGeometryService {
             return {
                 vertices: new Float32Array(vertices),
                 indices: new Uint32Array(indices),
-                normals: new Float32Array(normals)
+                normals: computeVertexNormals(vertices, indices)
             };
         } catch (err) {
             safeDelete(...toDelete);
@@ -440,30 +567,35 @@ class CADGeometryService {
                         vertices[idx2 * 3 + 2]
                     );
 
-                    // Create edges for the triangle
-                    const edge1 = new oc.BRepBuilderAPI_MakeEdge_3(v0, v1).Edge();
-                    const edge2 = new oc.BRepBuilderAPI_MakeEdge_3(v1, v2).Edge();
-                    const edge3 = new oc.BRepBuilderAPI_MakeEdge_3(v2, v0).Edge();
+                    // Create edges for the triangle (keep builder refs so we can delete them)
+                    const em1 = new oc.BRepBuilderAPI_MakeEdge_3(v0, v1);
+                    const em2 = new oc.BRepBuilderAPI_MakeEdge_3(v1, v2);
+                    const em3 = new oc.BRepBuilderAPI_MakeEdge_3(v2, v0);
+                    const edge1 = em1.Edge();
+                    const edge2 = em2.Edge();
+                    const edge3 = em3.Edge();
 
                     // Create wire from edges
                     const wireBuilder = new oc.BRepBuilderAPI_MakeWire_1();
                     wireBuilder.Add_1(edge1);
                     wireBuilder.Add_1(edge2);
                     wireBuilder.Add_1(edge3);
-                    
+
+                    let faceMaker = null;
                     if (wireBuilder.IsDone()) {
                         const wire = wireBuilder.Wire();
-                        
+
                         // Create face from wire
-                        const faceMaker = new oc.BRepBuilderAPI_MakeFace_15(wire, true);
+                        faceMaker = new oc.BRepBuilderAPI_MakeFace_15(wire, true);
                         if (faceMaker.IsDone()) {
                             builder.Add(compound, faceMaker.Face());
                             successCount++;
                         }
                     }
 
-                    // Clean up temporary objects
-                    safeDelete(v0, v1, v2);
+                    // Clean up this triangle's temporary objects (the face/edges copied
+                    // into the compound stay valid after the builders are deleted)
+                    safeDelete(v0, v1, v2, em1, em2, em3, wireBuilder, faceMaker);
                 } catch (faceErr) {
                     // Skip problematic triangles
                     continue;
@@ -494,13 +626,13 @@ class CADGeometryService {
      * @returns {Object} Resulting mesh data
      */
     meshBooleanOperation(meshData1, meshData2, operation) {
+        let shape1 = null, shape2 = null, resultShape = null;
         try {
             // Convert meshes to BREP shapes
-            const shape1 = this.meshToShape(meshData1);
-            const shape2 = this.meshToShape(meshData2);
+            shape1 = this.meshToShape(meshData1);
+            shape2 = this.meshToShape(meshData2);
 
             // Perform boolean operation
-            let resultShape;
             switch (operation.toLowerCase()) {
                 case 'union':
                     resultShape = this.booleanUnion(shape1, shape2);
@@ -521,6 +653,9 @@ class CADGeometryService {
 
         } catch (err) {
             throw new Error(`Mesh boolean operation failed: ${err.message}`);
+        } finally {
+            // Free the intermediate BREP shapes regardless of success/failure
+            safeDelete(shape1, shape2, resultShape);
         }
     }
 }

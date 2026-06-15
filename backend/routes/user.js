@@ -71,7 +71,7 @@ router.get('/:address/nfts', async (req, res) => {
         // Logic removed as it was dead code.
 
 
-        // Query DB directly — exclude items user sold (where seller matches but owner doesn't)
+        // Query DB directly — include all user creations and owned items (including sold items, which the frontend requires to compute dashboard stats)
         const userNFTs = await MarketItem.find({
             $or: [
                 { owner: userAddress },

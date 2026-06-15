@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useThree, useFrame } from '@react-three/fiber';
+import { useThree, useFrame, invalidate } from '@react-three/fiber';
 import { TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -22,8 +22,15 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
   const helperRef = useRef();
   const verticesRef = useRef(null);
   const meshGeometryRef = useRef(null);
+  const solidGeometryRef = useRef(null);
   const pointsGeometryRef = useRef(null);
   const lastHelperPosition = useRef({ x: 0, y: 0, z: 0 });
+  // Indices of every vertex coincident with the picked one. OpenCascade tessellation
+  // does NOT weld shared corners (each face carries its own copy for flat shading),
+  // so a box corner is ~3 vertices at the same spot. Moving only the picked copy
+  // tears one face off; moving the whole coincident group deforms the corner as a
+  // unit — i.e. Blender-style welded-vertex editing.
+  const selectedGroupRef = useRef([]);
 
   // Initialize geometry refs
   useEffect(() => {
@@ -37,6 +44,7 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
       setSelectedVertexIndex(null);
       setHelperPosition(null);
       verticesRef.current = null;
+      selectedGroupRef.current = [];
     };
   }, [feature, orbitRef]);
 
@@ -65,12 +73,17 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
     };
     
     tc.addEventListener('dragging-changed', handleDragChange);
-    
+
     return () => {
       tc.removeEventListener('dragging-changed', handleDragChange);
     };
 
-  }, [helperRef, orbitRef, onGeometryUpdate, feature]);
+    // Depend on helperPosition, NOT helperRef: the <TransformControls> only mounts
+    // after a vertex is picked (helperPosition becomes non-null), and helperRef is a
+    // stable ref object that never changes. Without this, the effect runs once while
+    // transformRef.current is still null, never re-attaches, and the drag-end
+    // write-back to onGeometryUpdate never fires -> edits never reach the 3D tab.
+  }, [helperPosition, orbitRef, onGeometryUpdate, feature]);
 
   // Continuously update vertex position from helper sphere position
   useFrame(() => {
@@ -93,15 +106,27 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
     // Store new position
     lastHelperPosition.current = { x: newPos.x, y: newPos.y, z: newPos.z };
 
-    // Update vertex in shared array
-    verticesRef.current[index * 3] = newPos.x;
-    verticesRef.current[index * 3 + 1] = newPos.y;
-    verticesRef.current[index * 3 + 2] = newPos.z;
+    // Move every coincident copy to the new position. They all started at the same
+    // spot, so setting them absolutely keeps the corner welded as it deforms. Falls
+    // back to the single picked index if the group wasn't computed.
+    const group = selectedGroupRef.current.length ? selectedGroupRef.current : [index];
+    for (let g = 0; g < group.length; g++) {
+      const vi = group[g];
+      verticesRef.current[vi * 3] = newPos.x;
+      verticesRef.current[vi * 3 + 1] = newPos.y;
+      verticesRef.current[vi * 3 + 2] = newPos.z;
+    }
 
-    // Update mesh geometry
+    // Refresh every geometry that shares this vertex buffer. Each <bufferAttribute>
+    // has its own GPU-upload flag, so the wireframe AND the solid fill must both be
+    // flagged or the solid stays frozen while only the wireframe deforms.
     if (meshGeometryRef.current) {
       meshGeometryRef.current.attributes.position.needsUpdate = true;
       meshGeometryRef.current.computeVertexNormals();
+    }
+    if (solidGeometryRef.current) {
+      solidGeometryRef.current.attributes.position.needsUpdate = true;
+      solidGeometryRef.current.computeVertexNormals();
     }
 
     // Update points geometry
@@ -133,8 +158,23 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
       const y = vertices[index * 3 + 1];
       const z = vertices[index * 3 + 2];
 
-      console.log(`Selected vertex ${index}: (${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)})`);
-      
+      // Gather all vertices sharing this position (the unwelded coincident copies)
+      // so dragging deforms the whole corner, not a single face triangle.
+      const EPS = 1e-4;
+      const group = [];
+      for (let i = 0; i < vertices.length / 3; i++) {
+        if (
+          Math.abs(vertices[i * 3] - x) < EPS &&
+          Math.abs(vertices[i * 3 + 1] - y) < EPS &&
+          Math.abs(vertices[i * 3 + 2] - z) < EPS
+        ) {
+          group.push(i);
+        }
+      }
+      selectedGroupRef.current = group;
+
+      console.log(`Selected vertex ${index} (+${group.length - 1} coincident): (${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)})`);
+
       setSelectedVertexIndex(index);
       setHelperPosition([x, y, z]);
       lastHelperPosition.current = { x, y, z };
@@ -147,7 +187,21 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
 
   const { indices } = feature.meshData;
 
+  // Place the editor where the solid actually sits. The object transform lives on an
+  // outer group; the inner group keeps the fixed OC(Z-up)->three(Y-up) orientation.
+  // Vertices are still authored/edited in mesh space (TransformControls reports the
+  // helper's parent-local position), so onGeometryUpdate stays in mesh space.
+  const t = feature.transform || {};
+  const objPosition = t.position || [0, 0, 0];
+  const objRotation = t.rotation || [0, 0, 0];
+  const objScale = Array.isArray(t.scale)
+    ? t.scale
+    : typeof t.scale === 'number'
+      ? [t.scale, t.scale, t.scale]
+      : [1, 1, 1];
+
   return (
+    <group position={objPosition} rotation={objRotation} scale={objScale}>
     <group rotation={[-Math.PI / 2, 0, 0]}>
       {/* Main mesh with wireframe */}
       <mesh
@@ -183,7 +237,11 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
       </mesh>
 
       {/* Solid mesh with reduced opacity */}
-      <mesh>
+      <mesh
+        ref={(mesh) => {
+          if (mesh) solidGeometryRef.current = mesh.geometry;
+        }}
+      >
         <bufferGeometry>
           <bufferAttribute
             attach="attributes-position"
@@ -247,9 +305,11 @@ export default function MeshEditor({ feature, onGeometryUpdate, orbitRef }) {
             object={helperRef.current}
             mode="translate"
             size={1.0}
+            onObjectChange={() => invalidate()}
           />
         </>
       )}
+    </group>
     </group>
   );
 }

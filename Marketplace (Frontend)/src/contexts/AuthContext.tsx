@@ -23,15 +23,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Sync user to backend if logged in
         if (user) {
           const walletAddress = user.unsafeMetadata?.walletAddress as string;
-          if (walletAddress) {
-            // Prepare username similar to Upload.tsx logic
-            const username = user.username || '';
+          // Prepare username similar to Upload.tsx logic
+          const username = user.username || '';
 
-            let displayName = '';
-            if (user.firstName) {
-              displayName = user.firstName;
-              if (user.lastName) displayName += ` ${user.lastName}`;
-            }
+          let displayName = '';
+          if (user.firstName) {
+            displayName = user.firstName;
+            if (user.lastName) displayName += ` ${user.lastName}`;
+          }
+
+          if (walletAddress) {
+            // Persist display name for the CAD editor (no Clerk access there)
+            const resolvedName = displayName || username || 'Creator';
+            try { localStorage.setItem('ct_user_name', resolvedName); } catch {}
 
             // Send to backend via new apiService method
             try {
@@ -45,7 +49,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } catch (err) {
               console.error('Failed to sync user to backend:', err);
             }
+          } else {
+            // Logged in but no wallet — still persist name for CAD editor
+            const resolvedName = displayName || username || 'Creator';
+            try { localStorage.setItem('ct_user_name', resolvedName); } catch {}
           }
+        } else {
+          // Logged out — clear the stored name
+          try { localStorage.removeItem('ct_user_name'); } catch {}
         }
       }
     };

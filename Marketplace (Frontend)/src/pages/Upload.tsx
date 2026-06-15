@@ -183,14 +183,11 @@ const Upload: React.FC = () => {
       // Import web3Service dynamically to avoid circular deps
       const { web3Service } = await import('@/services/web3Service');
 
-      // Get category ID (simple mapping)
+      // Category → contract ID mapping (unified with CAD editor)
       const categoryMap: Record<string, number> = {
-        'architecture': 10, 'vehicles': 10, 'characters': 10, 'furniture': 10,
-        'electronics': 1, 'nature': 10, 'other': 10,
-        // PascalCase aliases for backwards compatibility
-        'Electronics': 1, 'Collectibles': 2, 'Art': 3, 'Music': 4, 'Gaming': 5,
-        'Sports': 6, 'Photography': 7, 'Virtual Real Estate': 8, 'Domain Names': 9, 'Utility': 10,
-        'Automotive': 10, 'Mechanical': 10, 'Aerospace': 10, 'Industrial': 10, 'Other': 10
+        'Mechanical': 10, 'Automotive': 10, 'Aerospace': 10, 'Industrial': 10,
+        'Architecture': 10, 'Electronics': 1, 'Collectibles': 2, 'Art': 3,
+        'Gaming': 5, 'Utility': 10, 'Other': 10,
       };
       const categoryId = categoryMap[uploadData.category] || 10;
 
@@ -398,13 +395,17 @@ const Upload: React.FC = () => {
           className={inputClasses}
         >
           <option value=''>Select a category</option>
-          <option value='architecture'>Architecture</option>
-          <option value='vehicles'>Vehicles</option>
-          <option value='characters'>Characters</option>
-          <option value='furniture'>Furniture</option>
-          <option value='electronics'>Electronics</option>
-          <option value='nature'>Nature</option>
-          <option value='other'>Other</option>
+          <option value='Mechanical'>Mechanical</option>
+          <option value='Automotive'>Automotive</option>
+          <option value='Aerospace'>Aerospace</option>
+          <option value='Industrial'>Industrial</option>
+          <option value='Architecture'>Architecture</option>
+          <option value='Electronics'>Electronics</option>
+          <option value='Collectibles'>Collectibles</option>
+          <option value='Art'>Art</option>
+          <option value='Gaming'>Gaming</option>
+          <option value='Utility'>Utility</option>
+          <option value='Other'>Other</option>
         </select>
       </div>
 

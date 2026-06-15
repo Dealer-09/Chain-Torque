@@ -27,8 +27,13 @@ export interface MarketplaceItem {
     rating: number;
     totalSales: number;
   };
+  // Raw DB fields returned by the backend
+  imageUrl?: string;
   images: string[];
   modelUrl: string;
+  tokenURI?: string;
+  username?: string;
+  status?: string;
   category: string;
   tags: string[];
   views: number;

@@ -136,7 +136,7 @@ ChainTorque addresses these challenges through:
   - Natural language to JSON geometric structures (Torquy AI)
   - 2D image to 3D model generation
   - Parameterized shape spawning and placement
-- **Technology**: Groq SDK (Llama 3), HuggingFace Gradio SDK, Node.js
+- **Technology**: Google Gemini SDK (Gemini 2.5 Flash), HuggingFace Gradio SDK, Node.js
 
 ##### WASM Geometry Engine (Rust - Planned)
 - **Purpose**: High-performance client-side geometry operations

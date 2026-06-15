@@ -1,4 +1,4 @@
-import { Search, ChevronRight, Star, TrendingUp, Clock, ArrowRight, Building2, Car, Users, Armchair, Cpu, Leaf, Package, Home, Scan } from 'lucide-react';
+import { Search, ChevronRight, Star, TrendingUp, Clock, ArrowRight, Building2, Car, Cpu, Package, Home, Scan, Wrench } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { CadCard } from '@/components/ui/cad-card';
 import { Button } from '@/components/ui/button';
@@ -9,11 +9,6 @@ import { Gear3D } from '@/components/ui/Gear3D';
 import { EngineSvg, WrenchSvg, PistonSvg, CircuitSvg, CogSvg, BlueprintSvg } from '@/components/ui/AnimatedCadSvgs';
 import { resolveAssetUrl } from '@/lib/urls';
 
-// Import fallback images
-import cadGear from '@/assets/cad-gear.jpg';
-import cadDrone from '@/assets/cad-drone.jpg';
-import cadEngine from '@/assets/cad-engine.jpg';
-import cadRobot from '@/assets/cad-robot.jpg';
 
 interface DisplayItem {
   id: number;
@@ -29,32 +24,29 @@ interface DisplayItem {
   category?: string;
 }
 
-const featuredModels: DisplayItem[] = [
-  { id: 1, tokenId: 1, title: 'Professional Gear Assembly', image: cadGear, price: '$49.99', seller: 'MechDesign Pro', rating: 4.8, downloads: 1245, fileTypes: ['GLB', 'STL'], software: ['Blender', 'Three.js'], category: 'Other' },
-  { id: 2, tokenId: 2, title: 'Carbon Fiber Drone Frame', image: cadDrone, price: '$29.99', seller: 'AeroTech', rating: 4.9, downloads: 856, fileTypes: ['GLB', 'OBJ'], software: ['Blender', 'WebGL'], category: 'Vehicles' },
-  { id: 3, tokenId: 3, title: 'Engine Cylinder Head', image: cadEngine, price: '$89.99', seller: 'AutoCAD Masters', rating: 4.7, downloads: 2134, fileTypes: ['GLTF', 'GLB'], software: ['Three.js', 'WebGL'], category: 'Vehicles' },
-  { id: 4, tokenId: 4, title: 'Robotic Arm Joint', image: cadRobot, price: '$75.00', seller: 'RoboDesign', rating: 4.9, downloads: 967, fileTypes: ['GLB', 'STL'], software: ['SolidWorks', 'Fusion360'], category: 'Electronics' },
-];
+// Empty fallback — only shown when backend is unreachable and returns 0 items
+const featuredModels: DisplayItem[] = [];
 
 const categories = [
-  { name: 'Architecture', icon: <Building2 className='w-5 h-5' />, count: '410+' },
-  { name: 'Vehicles', icon: <Car className='w-5 h-5' />, count: '320+' },
-  { name: 'Characters', icon: <Users className='w-5 h-5' />, count: '150+' },
-  { name: 'Furniture', icon: <Armchair className='w-5 h-5' />, count: '210+' },
-  { name: 'Electronics', icon: <Cpu className='w-5 h-5' />, count: '260+' },
-  { name: 'Nature', icon: <Leaf className='w-5 h-5' />, count: '180+' },
-  { name: 'Other', icon: <Package className='w-5 h-5' />, count: '500+' },
+  { name: 'Mechanical', icon: <Package className='w-5 h-5' />, count: '' },
+  { name: 'Automotive', icon: <Car className='w-5 h-5' />, count: '' },
+  { name: 'Aerospace', icon: <Scan className='w-5 h-5' />, count: '' },
+  { name: 'Architecture', icon: <Building2 className='w-5 h-5' />, count: '' },
+  { name: 'Electronics', icon: <Cpu className='w-5 h-5' />, count: '' },
+  { name: 'Art', icon: <Home className='w-5 h-5' />, count: '' },
+  { name: 'Utility', icon: <Wrench className='w-5 h-5' />, count: '' },
+  { name: 'Other', icon: <Package className='w-5 h-5' />, count: '' },
 ];
 
 export function HeroSection() {
-  const { items } = useMarketplace();
+  const { items, loading: itemsLoading } = useMarketplace();
   const [displayItems, setDisplayItems] = useState<DisplayItem[]>(featuredModels);
   const [showWalletDialog, setShowWalletDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   // Resolve the best available image for a marketplace item
-  const resolveItemImage = (item: any, fallbackIndex: number): string => {
+  const resolveItemImage = (item: any, _fallbackIndex: number): string => {
     // 1. Prefer imageUrl if valid
     if (item.imageUrl && item.imageUrl !== '/placeholder.jpg') {
       return resolveAssetUrl(item.imageUrl);
@@ -63,8 +55,8 @@ export function HeroSection() {
     if (Array.isArray(item.images) && item.images.length > 0 && item.images[0] !== '/placeholder.jpg') {
       return resolveAssetUrl(item.images[0]);
     }
-    // 3. Stock fallback
-    return featuredModels[fallbackIndex % featuredModels.length].image;
+    // 3. Neutral placeholder — do NOT use stock photos for real items with missing images
+    return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="%231a1a2e"/><line x1="0" y1="200" x2="400" y2="200" stroke="%23334155" stroke-width="1"/><line x1="200" y1="0" x2="200" y2="400" stroke="%23334155" stroke-width="1"/><circle cx="200" cy="200" r="60" fill="none" stroke="%23475569" stroke-width="1.5" stroke-dasharray="6,4"/><text x="200" y="310" text-anchor="middle" fill="%2364748b" font-family="sans-serif" font-size="13">No preview</text></svg>';
   };
 
   // Transform backend items to display format
@@ -84,7 +76,9 @@ export function HeroSection() {
 
   // Filter items based on search and category
   useEffect(() => {
-    // Handle empty or null items
+    // Don't fall back to mock data while the fetch is still in flight
+    if (itemsLoading) return;
+    // Only show mock fallback if fetch finished and returned nothing
     if (!items || items.length === 0) {
       setDisplayItems(featuredModels);
       return;
@@ -111,7 +105,7 @@ export function HeroSection() {
 
     // Show filtered results (up to 8 items)
     setDisplayItems(filtered.slice(0, 8));
-  }, [items, searchQuery, selectedCategory]);
+  }, [items, itemsLoading, searchQuery, selectedCategory]);
 
   const handleSearch = () => {
     // Trigger re-filter (already handled by useEffect)
@@ -278,21 +272,35 @@ export function HeroSection() {
             </Link>
           </div>
           <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
-            {displayItems.map((model, index) => (
-              <CadCard
-                key={`trending-${model.id}-${index}`}
-                id={model.tokenId}
-                title={model.title}
-                image={model.image}
-                price={model.price}
-                seller={model.seller}
-                rating={model.rating}
-                downloads={model.downloads}
-                fileTypes={model.fileTypes}
-                software={model.software}
-                onWalletRequired={() => setShowWalletDialog(true)}
-              />
-            ))}
+            {itemsLoading ? (
+              // Skeleton loading state while IPFS metadata is being fetched
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={`skel-${i}`} className='rounded-xl border border-border/40 bg-card/60 overflow-hidden animate-pulse'>
+                  <div className='aspect-square bg-muted/60' />
+                  <div className='p-3 space-y-2'>
+                    <div className='h-3 bg-muted/60 rounded w-3/4' />
+                    <div className='h-3 bg-muted/40 rounded w-1/2' />
+                    <div className='h-3 bg-muted/40 rounded w-1/3' />
+                  </div>
+                </div>
+              ))
+            ) : (
+              displayItems.map((model, index) => (
+                <CadCard
+                  key={`trending-${model.id}-${index}`}
+                  id={model.tokenId}
+                  title={model.title}
+                  image={model.image}
+                  price={model.price}
+                  seller={model.seller}
+                  rating={model.rating}
+                  downloads={model.downloads}
+                  fileTypes={model.fileTypes}
+                  software={model.software}
+                  onWalletRequired={() => setShowWalletDialog(true)}
+                />
+              ))
+            )}
           </div>
         </div>
       </section>
