@@ -155,6 +155,54 @@ app.get('/api/web3/status', async (req, res) => {
   }
 });
 
+// App config endpoint — single source of truth for clients (mobile + web).
+// Mobile fetches this on launch so a contract redeploy never requires a rebuild.
+app.get('/api/config', async (req, res) => {
+  try {
+    let contractAddress = web3.contractAddress || null;
+    let chainId = 11155111;        // Sepolia default
+    let listingPrice = '0.00025';
+    let network = 'sepolia';
+
+    // Prefer live values from the connected web3 manager.
+    if (web3.isReady()) {
+      try {
+        const net = await web3.provider.getNetwork();
+        chainId = Number(net.chainId);
+      } catch (e) {
+        console.warn('[Config] Failed to read chainId from provider:', e.message);
+      }
+      try {
+        listingPrice = web3.getContractConstants().LISTING_PRICE;
+      } catch (e) {
+        console.warn('[Config] Failed to read listing price:', e.message);
+      }
+    }
+
+    // Fall back to the deployment file so /api/config always returns an address,
+    // even if web3 failed to initialise.
+    if (!contractAddress) {
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const deployment = JSON.parse(
+          fs.readFileSync(path.join(__dirname, 'contract-address.json'), 'utf8')
+        );
+        contractAddress = deployment.ChainTorqueMarketplace;
+        chainId = deployment.chainId || chainId;
+        listingPrice = deployment.listingPrice || listingPrice;
+        network = deployment.network || network;
+      } catch (e) {
+        console.warn('[Config] Could not read contract-address.json:', e.message);
+      }
+    }
+
+    res.json({ success: true, contractAddress, chainId, listingPrice, network });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Balance endpoint
 app.get('/api/web3/balance/:address', async (req, res) => {
   const userAddress = req.params.address;

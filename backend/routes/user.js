@@ -172,4 +172,40 @@ router.get('/:address/purchases', async (req, res) => {
     }
 });
 
+// Get a user's full transaction history (mints, purchases, sales, relists).
+// Returns records where the user is the buyer, seller, or original creator.
+router.get('/:address/transactions', async (req, res) => {
+    const userAddress = req.params.address.toLowerCase();
+    try {
+        const Transaction = require('../models/Transaction');
+        const txs = await Transaction.find({
+            $or: [
+                { buyer: userAddress },
+                { seller: userAddress },
+                { creator: userAddress }
+            ]
+        }).sort({ createdAt: -1 }).limit(100).lean();
+
+        const formatted = txs.map(tx => ({
+            transactionHash: tx.transactionHash,
+            tokenId: tx.tokenId,
+            type: tx.type,
+            price: tx.price,
+            currency: tx.currency || 'ETH',
+            buyer: tx.buyer,
+            seller: tx.seller,
+            creator: tx.creator,
+            status: tx.status,
+            createdAt: tx.confirmedAt || tx.createdAt,
+            title: tx.metadata?.title || null,
+            imageUrl: tx.metadata?.imageUrl || null
+        }));
+
+        res.json({ success: true, transactions: formatted, data: formatted, count: formatted.length });
+    } catch (error) {
+        console.error('Error fetching user transactions:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;
