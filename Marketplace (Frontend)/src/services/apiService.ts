@@ -167,15 +167,8 @@ class ApiService {
     return this.request('/web3/status', { method: 'GET' });
   }
 
-  async validateAddress(address: string): Promise<ApiResponse<{ valid: boolean }>> {
-    return this.request('/web3/validate-address', {
-      method: 'POST',
-      body: JSON.stringify({ address }),
-    });
-  }
-
-  async getBalance(address: string): Promise<ApiResponse<{ balance: string }>> {
-    return this.request(`/web3/balance/${address}`, { method: 'GET' });
+  async getBalance(userAddress: string): Promise<ApiResponse<{ address: string; balance: string }>> {
+    return this.request(`/web3/balance/${userAddress}`, { method: 'GET' });
   }
 
   // Marketplace endpoints
@@ -288,31 +281,10 @@ class ApiService {
    * legacy method removed. Use purchaseItem (web3) + syncPurchase (api) instead.
    */
 
-  async getUserProfile(authToken: string): Promise<ApiResponse<any>> {
-    return this.request('/user/profile', {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-      },
-    });
-  }
-
   async registerUser(data: { walletAddress: string; username?: string; email?: string; displayName?: string }): Promise<ApiResponse<any>> {
     return this.request('/user/register', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
-  }
-
-  async uploadFile(file: File, authToken: string): Promise<ApiResponse<{ url: string; filename: string; size: number }>> {
-    const formData = new FormData();
-    formData.append('file', file);
-    const headers: any = { Authorization: `Bearer ${authToken}` };
-
-    return this.request('/upload', {
-      method: 'POST',
-      headers,
-      body: formData,
     });
   }
 
@@ -335,7 +307,6 @@ export default apiService;
 export const {
   healthCheck,
   getWeb3Status,
-  validateAddress,
   getBalance,
   getMarketplaceItems,
   getMarketplaceItem,
@@ -344,7 +315,5 @@ export const {
   getMarketplaceStats,
   syncPurchase,
   syncRelist,
-  getUserProfile,
-  uploadFile,
   isBackendConnected,
 } = apiService;

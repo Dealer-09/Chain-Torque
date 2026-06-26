@@ -131,3 +131,4 @@ $RECYCLE.BIN/
 
 # Security/Cleanup scripts
 backend/scripts/wipe_db.js
+.claude/

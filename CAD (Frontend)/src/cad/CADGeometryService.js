@@ -104,6 +104,7 @@ class CADGeometryService {
         try {
             const maker = new oc.BRepPrimAPI_MakeBox_1(width, height, depth);
             box = maker.Shape();
+            safeDelete(maker);
 
             const offsetX = position.x - width / 2;
             const offsetY = position.y - height / 2;
@@ -141,6 +142,7 @@ class CADGeometryService {
 
             const maker = new oc.BRepPrimAPI_MakeCylinder_3(axis, radius, height);
             const cylinder = maker.Shape();
+            safeDelete(maker);
 
             safeDelete(axis, origin, direction);
             return cylinder;
@@ -169,6 +171,7 @@ class CADGeometryService {
             // _3 overload mirrors MakeCylinder_3: (gp_Ax2, R1, R2, H).
             const maker = new oc.BRepPrimAPI_MakeCone_3(axis, radiusBottom, radiusTop, height);
             const cone = maker.Shape();
+            safeDelete(maker);
 
             safeDelete(axis, origin, direction);
             return cone;
@@ -188,6 +191,7 @@ class CADGeometryService {
         try {
             const maker = new oc.BRepPrimAPI_MakeSphere_1(radius);
             sphere = maker.Shape();
+            safeDelete(maker);
 
             if (position.x !== 0 || position.y !== 0 || position.z !== 0) {
                 transform = new oc.gp_Trsf_1();
@@ -287,6 +291,7 @@ class CADGeometryService {
                 const edgeMaker = new oc.BRepBuilderAPI_MakeEdge_3(start, end);
                 const edge = edgeMaker.Edge();
                 wireBuilder.Add_1(edge);
+                safeDelete(edgeMaker);
             }
 
             const wire = wireBuilder.Wire();
@@ -307,6 +312,7 @@ class CADGeometryService {
             // Create extrusion
             const prism = new oc.BRepPrimAPI_MakePrism_1(face, extrudeVec, false, true);
             const result = prism.Shape();
+            toDelete.push(wireBuilder, faceMaker, prism);
 
             // Cleanup temporary objects
             safeDelete(...toDelete);

@@ -107,6 +107,13 @@ app.get('/api/proxy-model', async (req, res) => {
     const https = require('https');
     const http = require('http');
     const urlObj = new URL(targetUrl);
+
+    // SECURITY FIX: SSRF Protection - Only allow safe IPFS gateways
+    const allowedHosts = ['gateway.pinata.cloud', 'ipfs.io', 'cloudflare-ipfs.com', 'gateway.lighthouse.storage'];
+    if (!allowedHosts.includes(urlObj.hostname)) {
+      return res.status(403).json({ error: 'Forbidden: Invalid proxy target domain' });
+    }
+
     const proto = urlObj.protocol === 'https:' ? https : http;
 
     proto.get(targetUrl, (upstream) => {
@@ -221,50 +228,51 @@ const MarketItem = require('./models/MarketItem');
 async function syncBlockchainToDB() {
   try {
     if (!web3.isReady()) return;
-    console.log('🔄 Syncing Blockchain to Database (Detailed)...');
-    // We need ALL items (Sold + Active) to populate user profiles correctly
-    const result = await web3.getAllMarketItems();
-    console.log(`[DEBUG] Sync fetched ${result.items?.length || 0} items from chain. Success: ${result.success}`);
-
-    if (result.success && Array.isArray(result.items)) {
-      let newCount = 0;
-      for (const item of result.items) {
-        const exists = await MarketItem.findOne({ tokenId: item.tokenId });
-        if (exists) {
-          // Check for differences and update if needed
-          const chainStatus = item.sold ? 'sold' : 'active';
-          if (exists.status !== chainStatus || (item.owner && exists.owner !== item.owner.toLowerCase())) {
-            console.log(`[SYNC] Updating Item #${item.tokenId}: Status ${exists.status}->${chainStatus}, Owner ${exists.owner}->${item.owner}`);
-            exists.status = chainStatus;
-            exists.owner = item.owner ? item.owner.toLowerCase() : exists.owner;
-            if (chainStatus === 'sold' && !exists.soldAt) {
-              exists.soldAt = new Date(); // Approximate
+    console.log('🔄 Syncing Blockchain to Database (Optimized)...');
+    
+    const currentTokenId = Number(await web3.contract.getCurrentTokenId());
+    let newCount = 0;
+    
+    for (let i = 1; i <= currentTokenId; i++) {
+        try {
+            const item = await web3.contract.getMarketItem(i);
+            const exists = await MarketItem.findOne({ tokenId: i });
+            const chainStatus = item.sold ? 'sold' : 'active';
+            const chainOwner = item.owner.toLowerCase();
+            
+            if (exists) {
+                if (exists.status !== chainStatus || (item.owner && exists.owner !== chainOwner)) {
+                    exists.status = chainStatus;
+                    exists.owner = chainOwner;
+                    if (chainStatus === 'sold' && !exists.soldAt) exists.soldAt = new Date();
+                    await exists.save();
+                }
+            } else {
+                // Missing item! Only now fetch IPFS metadata
+                const formatted = await web3.formatMarketItem(item);
+                await MarketItem.create({
+                  tokenId: formatted.tokenId,
+                  title: formatted.title || `NFT #${formatted.tokenId}`,
+                  description: formatted.description,
+                  price: parseFloat(formatted.price),
+                  category: formatted.category,
+                  seller: formatted.seller.toLowerCase(),
+                  owner: formatted.owner ? formatted.owner.toLowerCase() : null,
+                  status: formatted.sold ? 'sold' : 'active',
+                  tokenURI: formatted.tokenURI,
+                  imageUrl: formatted.imageUrl,
+                  modelUrl: formatted.modelUrl,
+                  createdAt: formatted.createdAt,
+                  storage: formatted.tokenURI?.startsWith('http') ? 'ipfs' : 'local'
+                });
+                newCount++;
             }
-            await exists.save();
-          }
+        } catch (e) {
+            console.error(`[SYNC] Failed for token ${i}:`, e.message);
         }
-        if (!exists) {
-          await MarketItem.create({
-            tokenId: item.tokenId,
-            title: item.title || `NFT #${item.tokenId}`,
-            description: item.description,
-            price: parseFloat(item.price),
-            category: item.category,
-            seller: item.seller.toLowerCase(),
-            owner: item.owner ? item.owner.toLowerCase() : null,
-            status: item.sold ? 'sold' : 'active',
-            tokenURI: item.tokenURI,
-            imageUrl: item.imageUrl,
-            modelUrl: item.modelUrl,
-            createdAt: item.createdAt,
-            storage: item.tokenURI?.startsWith('http') ? 'ipfs' : 'local'
-          });
-          newCount++;
-        }
-      }
-      if (newCount > 0) console.log(`✅ Synced ${newCount} new items from Blockchain.`);
-      else console.log('✅ Database is up to date.');
     }
+    if (newCount > 0) console.log(`✅ Synced ${newCount} new items from Blockchain.`);
+    else console.log('✅ Database is up to date.');
   } catch (error) {
     console.error('Sync failed:', error.message);
   }
@@ -288,7 +296,8 @@ async function initializeServices() {
     await connectDatabase();
     await web3.initialize();
 
-    await syncBlockchainToDB();
+    // Fire and forget sync, don't block event listener
+    syncBlockchainToDB();
 
     // Start Blockchain Event Listener
     const eventListener = require('./services/eventListener');

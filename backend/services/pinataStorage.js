@@ -1,7 +1,6 @@
 const { PinataSDK } = require('pinata');
 const path = require('path');
 const fs = require('fs');
-const FormData = require('form-data');
 
 // Initialize Pinata with JWT (recommended for production)
 const jwt = process.env.PINATA_JWT;

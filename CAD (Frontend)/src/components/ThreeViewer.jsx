@@ -295,11 +295,14 @@ const ExtrudedMesh = ({ featureId, meshData, color = '#4ecdc4', transform, visib
     return geo;
   }, [meshData]);
 
+  const materialRef = useRef();
+
   // Clean up WebGL buffers when component unmounts or geometry is recalculated
   React.useEffect(() => {
     return () => {
       disposeBoundsTreeSafe(geometry);
       geometry.dispose();
+      if (materialRef.current) materialRef.current.dispose();
     };
   }, [geometry]);
 
@@ -331,6 +334,7 @@ const ExtrudedMesh = ({ featureId, meshData, color = '#4ecdc4', transform, visib
       ) : (
         <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]}>
           <meshStandardMaterial
+            ref={materialRef}
             color={color}
             side={THREE.DoubleSide}
             metalness={0.3}
@@ -355,9 +359,12 @@ const SketchPreview = ({ sketch, height = 0 }) => {
     return new THREE.BufferGeometry().setFromPoints(points);
   }, [sketch, height]);
 
+  const materialRef = useRef();
+
   React.useEffect(() => {
     return () => {
       if (geometry) geometry.dispose();
+      if (materialRef.current) materialRef.current.dispose();
     };
   }, [geometry]);
 
@@ -365,7 +372,7 @@ const SketchPreview = ({ sketch, height = 0 }) => {
 
   return (
     <line geometry={geometry}>
-      <lineBasicMaterial color="#ff9500" linewidth={2} />
+      <lineBasicMaterial ref={materialRef} color="#ff9500" linewidth={2} />
     </line>
   );
 };

@@ -119,8 +119,18 @@ export const useDocumentStore = create((set, get) => ({
     const base = s.clipboard;
     // ai-model copies have no GLB URL to load from — render them via the meshData
     // pipeline instead by clearing source so ThreeViewer.featureSolids includes them.
+    let clonedMeshData = base.meshData;
+    if (base.meshData) {
+      clonedMeshData = {
+        vertices: new Float32Array(base.meshData.vertices),
+        indices: new Uint32Array(base.meshData.indices),
+        normals: new Float32Array(base.meshData.normals)
+      };
+    }
+
     const clone = {
       ...base,
+      meshData: clonedMeshData,
       id: `${base.type || 'feature'}_${Date.now()}`,
       name: `${base.name || 'Feature'} (copy)`,
       source: base.source === 'ai-model' || base.source === 'ai-model-captured'
@@ -269,9 +279,7 @@ export const useDocumentStore = create((set, get) => ({
     set((s) => ({
       features: s.features.map((f) => {
         if (f.id !== id) return f;
-        const updated = { ...f, visible: !f.visible };
-        if (updated.geometry) updated.geometry.visible = updated.visible;
-        return updated;
+        return { ...f, visible: !f.visible };
       }),
       sketches: s.sketches.map((sk) =>
         sk.id === id ? { ...sk, visible: !sk.visible } : sk
@@ -282,10 +290,6 @@ export const useDocumentStore = create((set, get) => ({
   deleteById: (id) => {
     get()._pushHistory();
     set((s) => {
-      const feature = s.features.find((f) => f.id === id);
-      if (feature?.geometry?.parent) {
-        feature.geometry.parent.remove(feature.geometry);
-      }
       return {
         features: s.features.filter((f) => f.id !== id),
         sketches: s.sketches.filter((sk) => sk.id !== id),

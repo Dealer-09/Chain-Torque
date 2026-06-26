@@ -32,38 +32,36 @@ function dropWorker() {
   workerApi = null;
 }
 
-// Try the worker; on any failure, permanently switch to the main-thread implementation
-// so the editor keeps working instead of breaking.
-async function run(workerCall, mainCall) {
-  if (mode === 'main' || forceMain()) return mainCall();
-  try {
-    const result = await workerCall(getWorkerApi());
-    mode = 'worker';
-    return result;
-  } catch (err) {
-    console.warn('[cadClient] Worker path failed — falling back to main thread:', err?.message || err);
-    mode = 'main';
-    dropWorker();
-    return mainCall();
-  }
-}
-
 export const cadClient = {
   isWorkerActive: () => mode === 'worker',
 
-  init: () => run((api) => api.init(), () => ops.initKernel()),
+  init: async () => {
+    if (forceMain()) {
+      mode = 'main';
+      return ops.initKernel();
+    }
+    try {
+      await getWorkerApi().init();
+      mode = 'worker';
+    } catch (err) {
+      console.warn('[cadClient] Worker init failed — falling back to main thread:', err?.message || err);
+      mode = 'main';
+      dropWorker();
+      return ops.initKernel();
+    }
+  },
 
   extrudeToMesh: (points, height, options) =>
-    run((api) => api.extrudeToMesh(points, height, options), () => ops.extrudeToMesh(points, height, options)),
+    mode === 'main' ? ops.extrudeToMesh(points, height, options) : getWorkerApi().extrudeToMesh(points, height, options),
 
   primitiveToMesh: (type, params, position) =>
-    run((api) => api.primitiveToMesh(type, params, position), () => ops.primitiveToMesh(type, params, position)),
+    mode === 'main' ? ops.primitiveToMesh(type, params, position) : getWorkerApi().primitiveToMesh(type, params, position),
 
   meshBoolean: (a, b, op) =>
-    run((api) => api.meshBoolean(a, b, op), () => ops.meshBoolean(a, b, op)),
+    mode === 'main' ? ops.meshBoolean(a, b, op) : getWorkerApi().meshBoolean(a, b, op),
 
   buildAIModel: (shapes, booleanOps) =>
-    run((api) => api.buildAIModel(shapes, booleanOps), () => ops.buildAIModel(shapes, booleanOps)),
+    mode === 'main' ? ops.buildAIModel(shapes, booleanOps) : getWorkerApi().buildAIModel(shapes, booleanOps),
 };
 
 export default cadClient;

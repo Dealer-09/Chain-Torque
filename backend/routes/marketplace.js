@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const path = require('path');
+const fs = require('fs');
 const MarketItem = require('../models/MarketItem');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const upload = require('../middleware/upload');
 const { ethers } = require('ethers');
 const { web3Manager: web3 } = require('../web3'); // Using singleton
-const { uploadFile, uploadMetadata } = require('../services/lighthouseStorage');
+const { uploadFile, uploadMetadata } = require('../services/pinataStorage');
 
 // Marketplace items endpoint
 router.get('/', async (req, res) => {
@@ -130,6 +131,18 @@ router.post('/upload-files', (req, res, next) => {
             message: 'Failed to upload files to IPFS',
             error: error.message,
         });
+    } finally {
+        // SECURITY FIX: Disk Space Leak - clean up local files
+        if (req.files) {
+            const allFiles = [...(req.files.image || []), ...(req.files.model || [])];
+            for (const file of allFiles) {
+                try {
+                    fs.unlinkSync(file.path);
+                } catch (e) {
+                    console.error('[Upload Cleanup] Failed to delete local file:', e.message);
+                }
+            }
+        }
     }
 }
 );
@@ -445,6 +458,11 @@ router.post('/sync-purchase', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Transaction does not contain valid MarketItemSold event for this token.' });
         }
 
+        // SECURITY FIX: Authorization bypass - ensure payload buyer matches blockchain buyer
+        if (soldEvent.args.buyer.toLowerCase() !== buyerAddress.toLowerCase()) {
+            return res.status(403).json({ success: false, message: 'Forbidden: You are not the buyer in this transaction' });
+        }
+
         // 3. Update Database (Idempotent)
         const item = await MarketItem.findOne({ tokenId: tokenId });
 
@@ -613,6 +631,11 @@ router.post('/sync-relist', async (req, res) => {
 
         if (!relistEvent || !truePrice) {
             return res.status(400).json({ success: false, message: 'Transaction does not contain valid MarketItemRelisted event for this token.' });
+        }
+
+        // SECURITY FIX: Authorization bypass - ensure payload seller matches blockchain seller
+        if (relistEvent.args.seller.toLowerCase() !== sellerAddress.toLowerCase()) {
+            return res.status(403).json({ success: false, message: 'Forbidden: You are not the seller in this transaction' });
         }
 
         // 3. Update Database (Idempotent)

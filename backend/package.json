@@ -19,9 +19,7 @@
   "author": "ChainTorque Team",
   "license": "ISC",
   "devDependencies": {
-    "@nomiclabs/hardhat-ethers": "^2.2.3",
-    "axios": "^1.13.6",
-    "form-data": "^4.0.5"
+    "@nomiclabs/hardhat-ethers": "^2.2.3"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
